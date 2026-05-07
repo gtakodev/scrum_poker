@@ -1,0 +1,551 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME: Daylight (Light)
+   Warm, refined with rich indigo brand color + amber accents
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --background: oklch(0.985 0.003 85);
+  --foreground: oklch(0.14 0.015 270);
+  --card: oklch(0.997 0.001 85);
+  --card-foreground: oklch(0.14 0.015 270);
+  --popover: oklch(0.997 0.001 85);
+  --popover-foreground: oklch(0.14 0.015 270);
+  --primary: oklch(0.44 0.19 265);
+  --primary-foreground: oklch(0.98 0.005 265);
+  --secondary: oklch(0.955 0.015 265);
+  --secondary-foreground: oklch(0.3 0.08 265);
+  --muted: oklch(0.95 0.005 85);
+  --muted-foreground: oklch(0.48 0.02 265);
+  --accent: oklch(0.73 0.14 70);
+  --accent-foreground: oklch(0.22 0.06 70);
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.55 0.22 27);
+  --border: oklch(0.915 0.01 265);
+  --input: oklch(0.915 0.01 265);
+  --ring: oklch(0.52 0.19 265);
+  --chart-1: oklch(0.55 0.2 265);
+  --chart-2: oklch(0.65 0.15 185);
+  --chart-3: oklch(0.73 0.14 70);
+  --chart-4: oklch(0.6 0.22 330);
+  --chart-5: oklch(0.58 0.18 145);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.975 0.005 265);
+  --sidebar-foreground: oklch(0.14 0.015 270);
+  --sidebar-primary: oklch(0.44 0.19 265);
+  --sidebar-primary-foreground: oklch(0.98 0.005 265);
+  --sidebar-accent: oklch(0.955 0.015 265);
+  --sidebar-accent-foreground: oklch(0.3 0.08 265);
+  --sidebar-border: oklch(0.915 0.01 265);
+  --sidebar-ring: oklch(0.52 0.19 265);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME: Obsidian (Dark)
+   Deep midnight blue with electric violet + teal accents
+   ═══════════════════════════════════════════════════════════════ */
+
+.dark {
+  --background: oklch(0.16 0.02 275);
+  --foreground: oklch(0.93 0.01 275);
+  --card: oklch(0.2 0.025 275);
+  --card-foreground: oklch(0.93 0.01 275);
+  --popover: oklch(0.22 0.025 275);
+  --popover-foreground: oklch(0.93 0.01 275);
+  --primary: oklch(0.72 0.17 290);
+  --primary-foreground: oklch(0.15 0.03 290);
+  --secondary: oklch(0.24 0.03 275);
+  --secondary-foreground: oklch(0.88 0.01 275);
+  --muted: oklch(0.24 0.025 275);
+  --muted-foreground: oklch(0.58 0.04 275);
+  --accent: oklch(0.76 0.12 195);
+  --accent-foreground: oklch(0.15 0.03 195);
+  --destructive: oklch(0.45 0.18 25);
+  --destructive-foreground: oklch(0.65 0.22 25);
+  --border: oklch(0.28 0.03 275);
+  --input: oklch(0.24 0.025 275);
+  --ring: oklch(0.65 0.17 290);
+  --chart-1: oklch(0.72 0.17 290);
+  --chart-2: oklch(0.76 0.12 195);
+  --chart-3: oklch(0.73 0.14 70);
+  --chart-4: oklch(0.65 0.22 330);
+  --chart-5: oklch(0.6 0.2 145);
+  --sidebar: oklch(0.18 0.025 275);
+  --sidebar-foreground: oklch(0.93 0.01 275);
+  --sidebar-primary: oklch(0.72 0.17 290);
+  --sidebar-primary-foreground: oklch(0.93 0.01 275);
+  --sidebar-accent: oklch(0.24 0.03 275);
+  --sidebar-accent-foreground: oklch(0.88 0.01 275);
+  --sidebar-border: oklch(0.28 0.03 275);
+  --sidebar-ring: oklch(0.65 0.17 290);
+}
+
+/* Ambient violet glow for dark theme */
+html.dark {
+  background-image: radial-gradient(
+    ellipse at 50% -20%,
+    oklch(0.25 0.06 290 / 0.12),
+    transparent 60%
+  );
+  background-attachment: fixed;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tailwind Theme Bridge
+   ═══════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Base Styles
+   ═══════════════════════════════════════════════════════════════ */
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+* {
+  border-color: var(--border);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME: Neon Arcade (Retro)
+   CRT phosphor glow, scanlines, 8-bit pixel aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+
+.theme-retro {
+  --background: #110a02;
+  --foreground: #f5deb3;
+  --card: #1f1207;
+  --card-foreground: #f5deb3;
+  --popover: #1f1207;
+  --popover-foreground: #f5deb3;
+  --primary: #f59e0b;
+  --primary-foreground: #110a02;
+  --secondary: #2d1a06;
+  --secondary-foreground: #f5deb3;
+  --muted: #2d1a06;
+  --muted-foreground: #a3865a;
+  --accent: #84cc16;
+  --accent-foreground: #110a02;
+  --destructive: #ef4444;
+  --destructive-foreground: #fecaca;
+  --border: #4a3012;
+  --input: #2d1a06;
+  --ring: #f59e0b;
+  --radius: 0px;
+  --font-sans: "Press Start 2P", monospace;
+  --font-mono: "Press Start 2P", monospace;
+}
+
+.theme-retro body,
+.theme-retro {
+  image-rendering: pixelated;
+}
+
+/* CRT vignette darkening at edges */
+.theme-retro::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 50%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Scanline overlay effect */
+.theme-retro::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Neon text glow on headings */
+.theme-retro h1,
+.theme-retro h2,
+.theme-retro h3 {
+  text-shadow:
+    0 0 8px rgba(245, 158, 11, 0.6),
+    0 0 24px rgba(245, 158, 11, 0.2);
+}
+
+/* Pixel-art style card borders with amber glow */
+.theme-retro [data-slot="card"],
+.theme-retro .rounded-lg {
+  border-radius: 0 !important;
+  border-width: 3px !important;
+  box-shadow:
+    4px 4px 0 rgba(245, 158, 11, 0.3),
+    0 0 12px rgba(245, 158, 11, 0.06);
+}
+
+.theme-retro button {
+  border-radius: 0 !important;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.theme-retro input {
+  border-radius: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME: Blueprint (Sketch)
+   Hand-drawn engineering sketch on warm graph paper
+   ═══════════════════════════════════════════════════════════════ */
+
+.theme-sketch {
+  --background: #f5e6c8;
+  --foreground: #2b2b2b;
+  --card: #efe0c3;
+  --card-foreground: #2b2b2b;
+  --popover: #efe0c3;
+  --popover-foreground: #2b2b2b;
+  --primary: #2b2b2b;
+  --primary-foreground: #f5e6c8;
+  --secondary: #e8d5a3;
+  --secondary-foreground: #2b2b2b;
+  --muted: #e8d5a3;
+  --muted-foreground: #7a6f5d;
+  --accent: #c4956a;
+  --accent-foreground: #2b2b2b;
+  --destructive: #8b3a3a;
+  --destructive-foreground: #f5e6c8;
+  --border: #2b2b2b;
+  --input: #efe0c3;
+  --ring: #2b2b2b;
+  --radius: 1px;
+  --font-sans: "Architects Daughter", cursive;
+  --font-mono: "Architects Daughter", cursive;
+}
+
+/* Graph paper grid + paper texture */
+.theme-sketch {
+  background-image:
+    linear-gradient(rgba(43, 43, 43, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(43, 43, 43, 0.06) 1px, transparent 1px),
+    radial-gradient(ellipse at 15% 25%, rgba(139, 115, 85, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 75%, rgba(139, 115, 85, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(196, 149, 106, 0.04) 0%, transparent 70%);
+  background-size: 24px 24px, 24px 24px, 100% 100%, 100% 100%, 100% 100%;
+}
+
+/* Hand-drawn style borders using rough/sketchy outlines */
+.theme-sketch [data-slot="card"],
+.theme-sketch .rounded-lg {
+  border-radius: 2px !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  border-color: #2b2b2b !important;
+  box-shadow:
+    2px 2px 0px #2b2b2b,
+    1px 3px 0px rgba(43, 43, 43, 0.3);
+  position: relative;
+}
+
+/* Pencil-stroke offset effect on cards */
+.theme-sketch [data-slot="card"]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  right: -3px;
+  bottom: -3px;
+  border: 1px solid rgba(43, 43, 43, 0.15);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.theme-sketch button {
+  border-radius: 2px !important;
+  border-width: 2px !important;
+  font-weight: 700;
+  text-transform: lowercase;
+  letter-spacing: 0.5px;
+  position: relative;
+}
+
+/* Slight hand-drawn tilt on buttons */
+.theme-sketch button:hover {
+  transform: rotate(-0.5deg);
+  transition: transform 0.15s ease;
+}
+
+.theme-sketch input {
+  border-radius: 2px !important;
+  border-width: 2px !important;
+  border-style: solid !important;
+  background: transparent !important;
+  border-bottom-width: 3px !important;
+}
+
+/* Underline-sketch style for headings */
+.theme-sketch h1,
+.theme-sketch h2,
+.theme-sketch h3 {
+  text-decoration: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: rgba(43, 43, 43, 0.3);
+  text-underline-offset: 4px;
+  font-style: italic;
+}
+
+/* Dashed separators for a ruler/guideline feel */
+.theme-sketch [data-slot="separator"],
+.theme-sketch hr {
+  border-style: dashed !important;
+  border-color: #2b2b2b !important;
+  opacity: 0.5;
+}
+
+/* Cross-hatch pattern overlay (very subtle) */
+.theme-sketch::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 20px,
+      rgba(43, 43, 43, 0.015) 20px,
+      rgba(43, 43, 43, 0.015) 21px
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 20px,
+      rgba(43, 43, 43, 0.015) 20px,
+      rgba(43, 43, 43, 0.015) 21px
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THEME: Desert Atelier (Bohemian)
+   Luxurious warmth — rich terracotta, gold, organic textures
+   ═══════════════════════════════════════════════════════════════ */
+
+.theme-bohemian {
+  --background: #251a12;
+  --foreground: #ece1d4;
+  --card: #352618;
+  --card-foreground: #ece1d4;
+  --popover: #352618;
+  --popover-foreground: #ece1d4;
+  --primary: #c87040;
+  --primary-foreground: #faf4ee;
+  --secondary: #3e2e1f;
+  --secondary-foreground: #ece1d4;
+  --muted: #3e2e1f;
+  --muted-foreground: #a89280;
+  --accent: #d4a03c;
+  --accent-foreground: #251a12;
+  --destructive: #bf6060;
+  --destructive-foreground: #fbe8e8;
+  --border: #56402e;
+  --input: #352618;
+  --ring: #c87040;
+  --radius: 1rem;
+  --font-sans: "Playfair Display", Georgia, serif;
+  --font-mono: "Caveat", cursive;
+}
+
+/* Warm earthy gradient wash with depth */
+.theme-bohemian {
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(200, 112, 64, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(212, 160, 60, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(200, 112, 64, 0.03) 0%, transparent 80%);
+}
+
+/* Organic rounded cards with warm shadow */
+.theme-bohemian [data-slot="card"],
+.theme-bohemian .rounded-lg {
+  border-radius: 1.25rem !important;
+  border-width: 1px !important;
+  border-color: rgba(200, 112, 64, 0.2) !important;
+  box-shadow:
+    0 4px 20px rgba(37, 26, 18, 0.5),
+    0 1px 4px rgba(200, 112, 64, 0.08);
+}
+
+/* Pill-shaped buttons with earthy hover glow */
+.theme-bohemian button {
+  border-radius: 999px !important;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+}
+
+.theme-bohemian button:hover {
+  box-shadow: 0 0 24px rgba(200, 112, 64, 0.2);
+}
+
+.theme-bohemian input {
+  border-radius: 0.75rem !important;
+  border-color: rgba(200, 112, 64, 0.25) !important;
+}
+
+/* Decorative italic headings with gold underline */
+.theme-bohemian h1,
+.theme-bohemian h2,
+.theme-bohemian h3 {
+  font-style: italic;
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 160, 60, 0.35);
+  text-underline-offset: 6px;
+  text-decoration-thickness: 2px;
+}
+
+.theme-bohemian h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+}
+
+/* Warm terracotta glow on primary buttons */
+.theme-bohemian button[data-slot="button"]:not([data-variant]) {
+  box-shadow:
+    0 2px 16px rgba(200, 112, 64, 0.3),
+    0 0 0 1px rgba(200, 112, 64, 0.12);
+}
+
+.theme-bohemian button[data-slot="button"]:not([data-variant]):hover {
+  box-shadow:
+    0 4px 24px rgba(200, 112, 64, 0.45),
+    0 0 0 1px rgba(200, 112, 64, 0.25);
+}
+
+/* Subtle woven texture overlay */
+.theme-bohemian::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 4px,
+      rgba(236, 225, 212, 0.012) 4px,
+      rgba(236, 225, 212, 0.012) 5px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 4px,
+      rgba(236, 225, 212, 0.012) 4px,
+      rgba(236, 225, 212, 0.012) 5px
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes card-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes subtle-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-card-pop {
+  animation: card-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 2s ease-in-out infinite;
+}
