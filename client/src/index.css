@@ -549,3 +549,55 @@ body {
 .animate-subtle-pulse {
   animation: subtle-pulse 2s ease-in-out infinite;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .animate-fade-in-up,
+  .animate-card-pop,
+  .animate-subtle-pulse {
+    animation: none !important;
+  }
+
+  .theme-sketch button:hover,
+  .theme-bohemian button:hover,
+  .hover\:-translate-y-1:hover {
+    transform: none !important;
+  }
+}
+
+@media (max-width: 640px), (prefers-reduced-motion: reduce) {
+  html.dark {
+    background-attachment: scroll;
+  }
+
+  .theme-retro::before,
+  .theme-retro::after,
+  .theme-sketch::after,
+  .theme-bohemian::after {
+    display: none;
+  }
+
+  .theme-retro h1,
+  .theme-retro h2,
+  .theme-retro h3 {
+    text-shadow: none;
+  }
+
+  .theme-retro [data-slot="card"],
+  .theme-retro .rounded-lg,
+  .theme-sketch [data-slot="card"],
+  .theme-sketch .rounded-lg,
+  .theme-bohemian [data-slot="card"],
+  .theme-bohemian .rounded-lg,
+  .theme-bohemian button[data-slot="button"]:not([data-variant]) {
+    box-shadow: none;
+  }
+}

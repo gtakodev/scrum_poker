@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useSyncExternalStore } from "react";
 
 export type ThemeName = "light" | "dark" | "retro" | "sketch" | "bohemian";
 
@@ -43,6 +43,15 @@ export const THEMES: ThemeConfig[] = [
 ];
 
 const STORAGE_KEY = "sprintvote_theme";
+const DEFAULT_TOASTER_THEME: "light" | "dark" = "light";
+
+const themeListeners = new Set<() => void>();
+
+function notifyThemeListeners(): void {
+  for (const listener of themeListeners) {
+    listener();
+  }
+}
 
 function getStoredTheme(): ThemeName {
   try {
@@ -60,7 +69,7 @@ function getStoredTheme(): ThemeName {
   return "light";
 }
 
-function applyTheme(theme: ThemeName): void {
+export function applyTheme(theme: ThemeName): void {
   const html = document.documentElement;
 
   // Remove all theme classes
@@ -87,23 +96,56 @@ function applyTheme(theme: ThemeName): void {
   }
 }
 
+function getThemeSnapshot(): ThemeName {
+  if (typeof window === "undefined") {
+    return "light";
+  }
+
+  return getStoredTheme();
+}
+
+function subscribeToTheme(listener: () => void): () => void {
+  themeListeners.add(listener);
+
+  return () => {
+    themeListeners.delete(listener);
+  };
+}
+
+export function setTheme(theme: ThemeName): void {
+  applyTheme(theme);
+
+  try {
+    localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // ignore
+  }
+
+  notifyThemeListeners();
+}
+
 export function useTheme() {
-  const [theme, setThemeState] = useState<ThemeName>(getStoredTheme);
-
-  useEffect(() => {
-    applyTheme(theme);
-  }, [theme]);
-
-  const setTheme = useCallback((newTheme: ThemeName) => {
-    setThemeState(newTheme);
-    try {
-      localStorage.setItem(STORAGE_KEY, newTheme);
-    } catch {
-      // ignore
-    }
-  }, []);
+  const theme = useSyncExternalStore(
+    subscribeToTheme,
+    getThemeSnapshot,
+    getThemeSnapshot
+  );
 
   return { theme, setTheme, themes: THEMES };
+}
+
+export function getToasterTheme(theme: ThemeName): "light" | "dark" {
+  switch (theme) {
+    case "dark":
+    case "retro":
+    case "bohemian":
+      return "dark";
+    case "light":
+    case "sketch":
+      return "light";
+    default:
+      return DEFAULT_TOASTER_THEME;
+  }
 }
 
 /** Get confetti colors matching the current theme */

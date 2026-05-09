@@ -1,7 +1,15 @@
 import confetti from "canvas-confetti";
 import { getThemeConfettiColors, type ThemeName } from "@/themes";
 
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 export function triggerConfetti(theme: ThemeName): void {
+  if (prefersReducedMotion()) {
+    return;
+  }
+
   const colors = getThemeConfettiColors(theme);
 
   // Burst from left

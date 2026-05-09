@@ -37,6 +37,7 @@ export default function RoomPage() {
   const roomState = useRoomStore((s) => s.roomState);
   const connected = useRoomStore((s) => s.connected);
   const error = useRoomStore((s) => s.error);
+  const [showReconnecting, setShowReconnecting] = useState(false);
 
   // Connect WebSocket only after user has entered their name
   useWebSocket(joined ? roomId : null, joined ? displayName : null);
@@ -57,6 +58,16 @@ export default function RoomPage() {
         setRoomExists(false);
       });
   }, [roomId]);
+
+  useEffect(() => {
+    if (connected || !roomState) {
+      setShowReconnecting(false);
+      return;
+    }
+
+    const timer = setTimeout(() => setShowReconnecting(true), 1500);
+    return () => clearTimeout(timer);
+  }, [connected, roomState]);
 
   function handleJoin(e: React.FormEvent) {
     e.preventDefault();
@@ -156,7 +167,7 @@ export default function RoomPage() {
           <div className="flex items-center gap-2 flex-shrink-0">
             <ShareLink roomId={roomState.id} />
             <ThemeSelector />
-            {!connected && (
+            {showReconnecting && (
               <span className="text-xs text-destructive animate-subtle-pulse">
                 Reconnecting...
               </span>

@@ -54,18 +54,25 @@ export function addParticipant(
   room: Room,
   displayName: string,
   sessionToken?: string
-): { participant: InternalParticipant; sessionToken: string } {
+): {
+  participant: InternalParticipant;
+  sessionToken: string;
+  didChangeRoom: boolean;
+} {
   // Try reconnection via session token
   if (sessionToken) {
     const session = sessionIndex.get(sessionToken);
     if (session && session.roomId === room.id) {
       const existing = room.participants.get(session.participantId);
       if (existing) {
+        const didChangeRoom =
+          !existing.connected || existing.displayName !== displayName;
+
         existing.connected = true;
         existing.displayName = displayName;
         existing.lastSeen = Date.now();
         room.lastActivity = Date.now();
-        return { participant: existing, sessionToken };
+        return { participant: existing, sessionToken, didChangeRoom };
       }
     }
   }
@@ -86,53 +93,78 @@ export function addParticipant(
   sessionIndex.set(token, { roomId: room.id, participantId: id });
   room.lastActivity = Date.now();
 
-  return { participant, sessionToken: token };
+  return { participant, sessionToken: token, didChangeRoom: true };
 }
 
-export function removeParticipant(room: Room, participantId: string): void {
+export function removeParticipant(room: Room, participantId: string): boolean {
   const participant = room.participants.get(participantId);
-  if (participant) {
-    sessionIndex.delete(participant.sessionToken);
-    room.participants.delete(participantId);
-    room.lastActivity = Date.now();
+  if (!participant) {
+    return false;
   }
+
+  sessionIndex.delete(participant.sessionToken);
+  room.participants.delete(participantId);
+  room.lastActivity = Date.now();
+  return true;
 }
 
 export function disconnectParticipant(
   room: Room,
   participantId: string
-): void {
+): boolean {
   const participant = room.participants.get(participantId);
-  if (participant) {
-    participant.connected = false;
-    participant.lastSeen = Date.now();
-    room.lastActivity = Date.now();
+  if (!participant || !participant.connected) {
+    return false;
   }
+
+  participant.connected = false;
+  participant.lastSeen = Date.now();
+  room.lastActivity = Date.now();
+  return true;
 }
 
 export function setVote(
   room: Room,
   participantId: string,
   value: string
-): void {
+): boolean {
   const participant = room.participants.get(participantId);
-  if (participant && !room.revealed) {
-    participant.vote = value;
-    room.lastActivity = Date.now();
+  if (!participant || participant.vote === value) {
+    return false;
   }
+
+  participant.vote = value;
+  room.lastActivity = Date.now();
+  return true;
 }
 
-export function revealVotes(room: Room): void {
+export function revealVotes(room: Room): boolean {
+  if (room.revealed) {
+    return false;
+  }
+
   room.revealed = true;
   room.lastActivity = Date.now();
+  return true;
 }
 
-export function resetVotes(room: Room): void {
+export function resetVotes(room: Room): boolean {
+  let didChangeRoom = room.revealed;
+
   room.revealed = false;
   for (const p of room.participants.values()) {
+    if (p.vote !== null) {
+      didChangeRoom = true;
+    }
     p.vote = null;
   }
+
+  if (!didChangeRoom) {
+    return false;
+  }
+
   room.lastActivity = Date.now();
+  return true;
 }
 
 /**

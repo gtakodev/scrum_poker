@@ -1,0 +1,12 @@
+{
+  "name": "sprintvote",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "bun run --cwd server typecheck",
+    "build:client": "bun run --cwd client build",
+    "test:server": "bun run --cwd server test",
+    "test:e2e": "bun run test-e2e.ts",
+    "verify": "bun run scripts/verify.ts"
+  }
+}

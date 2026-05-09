@@ -1,5 +1,6 @@
 import { createRoom, getRoom } from "./room";
 import { handleClose, handleMessage, type WSData } from "./handlers";
+import { normalizeNonEmptyString } from "./validation";
 import path from "path";
 import { statSync, existsSync } from "fs";
 
@@ -84,8 +85,8 @@ const server = Bun.serve<WSData>({
     if (pathname === "/api/rooms" && req.method === "POST") {
       return (async () => {
         try {
-          const body = (await req.json()) as { name?: string };
-          const name = body.name?.trim();
+          const body = (await req.json()) as { name?: unknown };
+          const name = normalizeNonEmptyString(body.name);
           if (!name) {
             return new Response(
               JSON.stringify({ error: "Room name is required" }),

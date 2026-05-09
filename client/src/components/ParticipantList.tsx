@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { sendRoomMessage } from "@/lib/roomSocket";
 import { useRoomStore } from "@/stores/useRoomStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,14 +8,13 @@ import { X } from "lucide-react";
 export default function ParticipantList() {
   const roomState = useRoomStore((s) => s.roomState);
   const myParticipantId = useRoomStore((s) => s.myParticipantId);
-  const sendMessage = useRoomStore((s) => s.sendMessage);
 
   if (!roomState) return null;
 
   const isRevealed = roomState.revealed;
 
   function handleKick(participantId: string) {
-    sendMessage({ type: "kick", participantId });
+    sendRoomMessage({ type: "kick", participantId });
   }
 
   return (

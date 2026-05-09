@@ -10,6 +10,7 @@ import {
   revealVotes,
   setVote,
 } from "./room";
+import { normalizeNonEmptyString } from "./validation";
 
 // ─── Types ───────────────────────────────────────────────────
 export interface WSData {
@@ -18,30 +19,89 @@ export interface WSData {
   sessionToken: string | null;
 }
 
+type MessageValidationResult =
+  | { ok: true; message: ClientMessage }
+  | { ok: false; error: string };
+
+const SESSION_REPLACED_CLOSE_CODE = 4001;
+
 // ─── Helpers ─────────────────────────────────────────────────
 function send(ws: ServerWebSocket<WSData>, msg: ServerMessage): void {
   ws.send(JSON.stringify(msg));
 }
 
-function broadcastRoomState(
-  server: { publish: (topic: string, data: string) => void },
-  roomId: string
-): void {
-  const room = getRoom(roomId);
-  if (!room) return;
-
-  // We need to send personalized state to each participant (their own vote visible, others hidden).
-  // Bun's pub/sub sends the same message to everyone. So we iterate and send individually.
-  // This is fine for <20 participants.
-  // We'll rely on the per-connection send in the callers instead.
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Broadcast room state to all connected WebSocket clients in a room.
- * Since each participant gets a personalized view (their own vote visible),
- * we can't use Bun's pub/sub topic broadcast. Instead, the server instance
- * tracks connections and we publish a "trigger" message.
- */
+function parseClientMessage(raw: string | Buffer): MessageValidationResult {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(typeof raw === "string" ? raw : raw.toString());
+  } catch {
+    return { ok: false, error: "Invalid message format" };
+  }
+
+  if (!isRecord(parsed) || typeof parsed.type !== "string") {
+    return { ok: false, error: "Invalid message format" };
+  }
+
+  switch (parsed.type) {
+    case "join": {
+      if (typeof parsed.displayName !== "string") {
+        return { ok: false, error: "Invalid display name" };
+      }
+
+      if (
+        parsed.sessionToken !== undefined &&
+        typeof parsed.sessionToken !== "string"
+      ) {
+        return { ok: false, error: "Invalid session token" };
+      }
+
+      return {
+        ok: true,
+        message: {
+          type: "join",
+          displayName: parsed.displayName,
+          sessionToken: parsed.sessionToken,
+        },
+      };
+    }
+
+    case "vote": {
+      if (typeof parsed.value !== "string") {
+        return { ok: false, error: "Invalid vote payload" };
+      }
+
+      return {
+        ok: true,
+        message: { type: "vote", value: parsed.value },
+      };
+    }
+
+    case "reveal":
+      return { ok: true, message: { type: "reveal" } };
+
+    case "reset":
+      return { ok: true, message: { type: "reset" } };
+
+    case "kick": {
+      if (typeof parsed.participantId !== "string") {
+        return { ok: false, error: "Invalid participantId" };
+      }
+
+      return {
+        ok: true,
+        message: { type: "kick", participantId: parsed.participantId },
+      };
+    }
+
+    default:
+      return { ok: false, error: "Unknown message type" };
+  }
+}
 
 // Connection registry: roomId → Map<participantId, ws>
 const connections = new Map<
@@ -49,33 +109,64 @@ const connections = new Map<
   Map<string, ServerWebSocket<WSData>>
 >();
 
+function sendRoomState(
+  ws: ServerWebSocket<WSData>,
+  room: NonNullable<ReturnType<typeof getRoom>>,
+  participantId: string
+): void {
+  const participant = room.participants.get(participantId);
+  if (!participant) {
+    return;
+  }
+
+  send(ws, {
+    type: "room_state",
+    state: buildRoomState(room, participantId),
+    sessionToken: participant.sessionToken,
+    yourParticipantId: participantId,
+  });
+}
+
 export function registerConnection(
   roomId: string,
   participantId: string,
   ws: ServerWebSocket<WSData>
-): void {
+): ServerWebSocket<WSData> | null {
   let roomConns = connections.get(roomId);
   if (!roomConns) {
     roomConns = new Map();
     connections.set(roomId, roomConns);
   }
+
+  const previous = roomConns.get(participantId) ?? null;
   roomConns.set(participantId, ws);
+  return previous === ws ? null : previous;
 }
 
 export function unregisterConnection(
   roomId: string,
-  participantId: string
-): void {
+  participantId: string,
+  ws?: ServerWebSocket<WSData>
+): boolean {
   const roomConns = connections.get(roomId);
-  if (roomConns) {
-    roomConns.delete(participantId);
-    if (roomConns.size === 0) {
-      connections.delete(roomId);
-    }
+  if (!roomConns) {
+    return false;
   }
+
+  const activeWs = roomConns.get(participantId);
+  if (!activeWs || (ws && activeWs !== ws)) {
+    return false;
+  }
+
+  roomConns.delete(participantId);
+  if (roomConns.size === 0) {
+    connections.delete(roomId);
+  }
+
+  return true;
 }
 
-function broadcastToRoom(roomId: string): void {
+function broadcastToRoom(roomId: string, excludedParticipantId?: string): void {
   const room = getRoom(roomId);
   if (!room) return;
 
@@ -83,16 +174,11 @@ function broadcastToRoom(roomId: string): void {
   if (!roomConns) return;
 
   for (const [pid, ws] of roomConns) {
-    const participant = room.participants.get(pid);
-    if (!participant) continue;
+    if (pid === excludedParticipantId) {
+      continue;
+    }
 
-    const state = buildRoomState(room, pid);
-    send(ws, {
-      type: "room_state",
-      state,
-      sessionToken: participant.sessionToken,
-      yourParticipantId: pid,
-    });
+    sendRoomState(ws, room, pid);
   }
 }
 
@@ -101,13 +187,13 @@ export function handleMessage(
   ws: ServerWebSocket<WSData>,
   raw: string | Buffer
 ): void {
-  let msg: ClientMessage;
-  try {
-    msg = JSON.parse(typeof raw === "string" ? raw : raw.toString());
-  } catch {
-    send(ws, { type: "error", message: "Invalid message format" });
+  const parsed = parseClientMessage(raw);
+  if (!parsed.ok) {
+    send(ws, { type: "error", message: parsed.error });
     return;
   }
+
+  const msg = parsed.message;
 
   const { roomId } = ws.data;
   const room = getRoom(roomId);
@@ -118,13 +204,13 @@ export function handleMessage(
       return;
     }
 
-    const displayName = msg.displayName?.trim();
+    const displayName = normalizeNonEmptyString(msg.displayName);
     if (!displayName) {
       send(ws, { type: "error", message: "Display name is required" });
       return;
     }
 
-    const { participant, sessionToken } = addParticipant(
+    const { participant, sessionToken, didChangeRoom } = addParticipant(
       room,
       displayName,
       msg.sessionToken
@@ -133,8 +219,18 @@ export function handleMessage(
     ws.data.participantId = participant.id;
     ws.data.sessionToken = sessionToken;
 
-    registerConnection(roomId, participant.id, ws);
-    broadcastToRoom(roomId);
+    const previousWs = registerConnection(roomId, participant.id, ws);
+    if (previousWs) {
+      previousWs.close(
+        SESSION_REPLACED_CLOSE_CODE,
+        "Session replaced by a newer tab"
+      );
+    }
+
+    sendRoomState(ws, room, participant.id);
+    if (didChangeRoom) {
+      broadcastToRoom(roomId, participant.id);
+    }
     return;
   }
 
@@ -150,20 +246,26 @@ export function handleMessage(
         send(ws, { type: "error", message: "Invalid vote value" });
         return;
       }
-      setVote(room, ws.data.participantId, msg.value);
+
+      if (!setVote(room, ws.data.participantId, msg.value)) {
+        return;
+      }
+
       broadcastToRoom(roomId);
       break;
     }
 
     case "reveal": {
-      revealVotes(room);
-      broadcastToRoom(roomId);
+      if (revealVotes(room)) {
+        broadcastToRoom(roomId);
+      }
       break;
     }
 
     case "reset": {
-      resetVotes(room);
-      broadcastToRoom(roomId);
+      if (resetVotes(room)) {
+        broadcastToRoom(roomId);
+      }
       break;
     }
 
@@ -186,8 +288,9 @@ export function handleMessage(
         unregisterConnection(roomId, msg.participantId);
       }
 
-      removeParticipant(room, msg.participantId);
-      broadcastToRoom(roomId);
+      if (removeParticipant(room, msg.participantId)) {
+        broadcastToRoom(roomId);
+      }
       break;
     }
 
@@ -202,10 +305,13 @@ export function handleClose(ws: ServerWebSocket<WSData>): void {
   const { roomId, participantId } = ws.data;
   if (!roomId || !participantId) return;
 
+  const removed = unregisterConnection(roomId, participantId, ws);
+  if (!removed) {
+    return;
+  }
+
   const room = getRoom(roomId);
-  if (room) {
-    disconnectParticipant(room, participantId);
-    unregisterConnection(roomId, participantId);
+  if (room && disconnectParticipant(room, participantId)) {
     broadcastToRoom(roomId);
   }
 }

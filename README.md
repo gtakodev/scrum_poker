@@ -5,9 +5,10 @@ A lightweight, real-time, browser-based Planning Poker app for agile teams. No a
 ## Features
 
 - **Real-time voting** — WebSocket-powered, instant updates for all participants
+- **Re-vote after reveal** — adjust estimates live without starting a new round
 - **No roles** — all participants are equal (anyone can reveal, reset, or kick)
 - **Reconnection** — rejoin a room after disconnect via localStorage session token
-- **5 visual themes** — Light, Dark, Retro Pixel, Cyberpunk, Forest (stored locally)
+- **5 visual themes** — Daylight, Obsidian, Neon Arcade, Blueprint, Desert Atelier
 - **Confetti** — celebratory animation when all votes are unanimous
 - **Share links** — one-click copy to invite teammates
 - **Card deck** — `1, 2, 3, 5, 8, 13, 20, 40, 100, ?, ☕`
@@ -82,19 +83,28 @@ scrum_poker/
 ├── server/src/
 │   ├── index.ts             # Bun.serve() — HTTP + WebSocket + static serving
 │   ├── room.ts              # Room CRUD, in-memory store, cleanup
-│   └── handlers.ts          # WebSocket message dispatch, broadcast
+│   ├── handlers.ts          # WebSocket message dispatch, personalized broadcasts
+│   └── validation.ts        # Shared input normalization helpers
 ├── client/src/
-│   ├── App.tsx              # Routes, theme init
+│   ├── App.tsx              # Routes, theme document sync
 │   ├── pages/               # HomePage, RoomPage, NotFoundPage
 │   ├── components/          # CardGrid, ParticipantList, VoteSummary, etc.
-│   ├── stores/              # Zustand store
-│   ├── hooks/               # useWebSocket, useConfettiOnReveal
-│   ├── themes/              # Theme system (5 themes)
-│   └── lib/                 # Utilities, confetti
+│   ├── stores/              # Serializable UI/application state
+│   ├── hooks/               # React lifecycle bindings for sockets and effects
+│   ├── themes/              # Theme source of truth (5 themes)
+│   └── lib/                 # Imperative adapters and utilities
 ├── Dockerfile               # Multi-stage build
 ├── docker-compose.yml       # App + Caddy
 └── Caddyfile                # Reverse proxy config
 ```
+
+## Client Layer Responsibilities
+
+- `stores/` keeps serializable room UI state only. It does not own browser resources such as WebSocket instances.
+- `hooks/` binds React lifecycle to external systems. `useWebSocket` opens, closes, reconnects, and translates server messages into store updates.
+- `lib/roomSocket.ts` is the narrow imperative adapter used by components to send room commands through the active socket.
+- `themes/` owns theme state and theme-specific derived values.
+- `components/` render state and dispatch user intent; they do not manage connection lifecycle.
 
 ## WebSocket Protocol
 
@@ -109,6 +119,17 @@ scrum_poker/
 - `room_state` — full room snapshot (personalized per participant)
 - `error` — error message
 - `kicked` — you were kicked from the room
+
+## Theme Strategy
+
+`client/src/themes/index.ts` is the single source of truth for theme state.
+
+- `useTheme()` reads the current app theme from localStorage-backed state
+- `setTheme()` updates storage and notifies all theme consumers
+- `App.tsx` applies the current theme classes to `<html>`
+- `ThemeSelector`, `useConfettiOnReveal`, and toast rendering all consume that same theme state
+
+`next-themes` is intentionally not used.
 
 ## Running Tests
 

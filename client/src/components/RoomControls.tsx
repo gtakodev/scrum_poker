@@ -1,10 +1,10 @@
 import { useRoomStore } from "@/stores/useRoomStore";
 import { Button } from "@/components/ui/button";
 import { Eye, RotateCcw } from "lucide-react";
+import { sendRoomMessage } from "@/lib/roomSocket";
 
 export default function RoomControls() {
   const roomState = useRoomStore((s) => s.roomState);
-  const sendMessage = useRoomStore((s) => s.sendMessage);
 
   if (!roomState) return null;
 
@@ -18,7 +18,7 @@ export default function RoomControls() {
     <div className="flex flex-wrap items-center justify-center gap-3">
       {!isRevealed ? (
         <Button
-          onClick={() => sendMessage({ type: "reveal" })}
+          onClick={() => sendRoomMessage({ type: "reveal" })}
           disabled={voterCount === 0}
           className="gap-2"
         >
@@ -27,7 +27,7 @@ export default function RoomControls() {
         </Button>
       ) : (
         <Button
-          onClick={() => sendMessage({ type: "reset" })}
+          onClick={() => sendRoomMessage({ type: "reset" })}
           variant="outline"
           className="gap-2"
         >

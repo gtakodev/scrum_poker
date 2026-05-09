@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useRoomStore } from "@/stores/useRoomStore";
+import { bindRoomSocket, unbindRoomSocket } from "@/lib/roomSocket";
 import type { ServerMessage } from "@shared/types";
 
 const STORAGE_PREFIX = "sprintvote_session_";
@@ -25,13 +26,13 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
   const reconnectAttempts = useRef(0);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const mountedRef = useRef(true);
+  const shouldReconnectRef = useRef(true);
 
   const {
     setRoomState,
     setMyParticipantId,
     setConnected,
     setError,
-    setWs,
     reset,
   } = useRoomStore();
 
@@ -50,12 +51,18 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
 
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-    setWs(ws);
+    bindRoomSocket(ws);
+    shouldReconnectRef.current = true;
 
     ws.onopen = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || wsRef.current !== ws) {
+        ws.close();
+        return;
+      }
+
       setConnected(true);
       reconnectAttempts.current = 0;
+      shouldReconnectRef.current = true;
 
       // Send join message
       const sessionToken = getSessionToken(roomId);
@@ -69,7 +76,7 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
     };
 
     ws.onmessage = (event) => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || wsRef.current !== ws) return;
 
       let msg: ServerMessage;
       try {
@@ -90,6 +97,7 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
           break;
         }
         case "kicked": {
+          shouldReconnectRef.current = false;
           setError("You have been removed from the room");
           ws.close();
           break;
@@ -98,12 +106,20 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
     };
 
     ws.onclose = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || wsRef.current !== ws) {
+        unbindRoomSocket(ws);
+        return;
+      }
+
       setConnected(false);
-      setWs(null);
+      unbindRoomSocket(ws);
       wsRef.current = null;
 
       // Auto-reconnect with exponential backoff (max 3 attempts)
+      if (!shouldReconnectRef.current) {
+        return;
+      }
+
       if (reconnectAttempts.current < 3) {
         const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 8000);
         reconnectAttempts.current++;
@@ -118,7 +134,7 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
     ws.onerror = () => {
       // onclose will fire after onerror, handling reconnect
     };
-  }, [roomId, displayName, setRoomState, setMyParticipantId, setConnected, setError, setWs]);
+  }, [roomId, displayName, setRoomState, setMyParticipantId, setConnected, setError]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -126,8 +142,10 @@ export function useWebSocket(roomId: string | null, displayName: string | null) 
 
     return () => {
       mountedRef.current = false;
+      shouldReconnectRef.current = false;
       clearTimeout(reconnectTimer.current);
       if (wsRef.current) {
+        unbindRoomSocket(wsRef.current);
         wsRef.current.close();
         wsRef.current = null;
       }

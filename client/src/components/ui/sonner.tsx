@@ -1,5 +1,6 @@
 "use client"
 
+import type React from "react"
 import {
   CircleCheck,
   Info,
@@ -7,17 +8,17 @@ import {
   OctagonX,
   TriangleAlert,
 } from "lucide-react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner } from "sonner"
+import { getToasterTheme, useTheme } from "@/themes"
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const { theme } = useTheme()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={getToasterTheme(theme)}
       className="toaster group"
       icons={{
         success: <CircleCheck className="h-4 w-4" />,
