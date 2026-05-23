@@ -4,25 +4,29 @@ A lightweight, real-time, browser-based Planning Poker app for agile teams. No a
 
 ## Features
 
-- **Real-time voting** — WebSocket-powered, instant updates for all participants
-- **Re-vote after reveal** — adjust estimates live without starting a new round
-- **No roles** — all participants are equal (anyone can reveal, reset, or kick)
-- **Reconnection** — rejoin a room after disconnect via localStorage session token
-- **5 visual themes** — Daylight, Obsidian, Neon Arcade, Blueprint, Desert Atelier
-- **Confetti** — celebratory animation when all votes are unanimous
-- **Share links** — one-click copy to invite teammates
-- **Card deck** — `1, 2, 3, 5, 8, 13, 20, 40, 100, ?, ☕`
-- **Room expiry** — rooms auto-expire after 24h of inactivity
+- **Real-time voting** - WebSocket-powered, instant updates for all participants
+- **Re-vote after reveal** - adjust estimates live without starting a new round
+- **No roles** - all participants are equal (anyone can reveal, reset, or kick)
+- **Session resume** - rejoin a room after a disconnect via a localStorage-backed `sessionToken`
+- **Single active tab per session** - a newer tab replaces the older socket for the same participant
+- **Kick handling** - a kicked client stops auto-reconnecting; the room link still works for a manual return
+- **5 visual themes** - Daylight, Obsidian, Neon Arcade, Blueprint, Desert Atelier
+- **Unanimous reveal confetti** - celebratory animation when all votes are unanimous
+- **Reduced motion support** - confetti and motion-heavy UI effects back off under `prefers-reduced-motion`
+- **Share links** - one-click copy to invite teammates
+- **Card deck** - `1, 2, 3, 5, 8, 13, 20, 40, 100, ?, ☕`
+- **Room expiry** - rooms auto-expire after 24h of inactivity
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Runtime | Bun |
-| Frontend | React 19, Vite 7, Tailwind CSS 4, shadcn/ui |
-| Routing | wouter v3 |
-| State | Zustand |
-| Backend | Bun.serve() (native HTTP + WebSocket) |
+| Runtime | Bun 1.3+ |
+| Frontend | React 19, Vite 7, Tailwind CSS 4 |
+| UI | Radix UI primitives, Sonner |
+| Routing | wouter 3 |
+| State | Zustand 5 |
+| Backend | Bun.serve() + TypeScript |
 | Deployment | Docker, Caddy |
 
 ## Quick Start (Development)
@@ -93,6 +97,7 @@ scrum_poker/
 │   ├── hooks/               # React lifecycle bindings for sockets and effects
 │   ├── themes/              # Theme source of truth (5 themes)
 │   └── lib/                 # Imperative adapters and utilities
+├── scripts/verify.ts        # Root verification (typecheck + tests + build + E2E)
 ├── Dockerfile               # Multi-stage build
 ├── docker-compose.yml       # App + Caddy
 └── Caddyfile                # Reverse proxy config
@@ -120,6 +125,14 @@ scrum_poker/
 - `error` — error message
 - `kicked` — you were kicked from the room
 
+## Session and Kick Behavior
+
+- The client stores one `sessionToken` per room in `localStorage`.
+- Rejoining with a still-valid token restores the same `participantId`.
+- A session allows only one active tab at a time. If a newer tab joins with the same token, the server closes the older socket.
+- When the client receives `kicked`, it stops the automatic reconnect loop and shows an error.
+- A kicked user can still open the room link manually. If the old token was invalidated by the kick, the server creates a new participant identity.
+
 ## Theme Strategy
 
 `client/src/themes/index.ts` is the single source of truth for theme state.
@@ -131,12 +144,28 @@ scrum_poker/
 
 `next-themes` is intentionally not used.
 
-## Running Tests
+## Verification and Tests
+
+Recommended from the repo root:
 
 ```bash
-# Start the server first
-cd server && bun run dev &
+bun run verify
+```
 
-# Run the E2E test suite
-bun run test-e2e.ts
+`bun run verify` runs:
+
+- server typecheck
+- server unit tests
+- client production build
+- `test-e2e.ts` against a temporary local server
+
+Focused commands from the repo root:
+
+```bash
+bun run typecheck
+bun run test:server
+bun run build:client
+
+# Requires a server already running on PORT 3000 (or $PORT)
+bun run test:e2e
 ```

@@ -10,7 +10,7 @@ Convention de suivi:
 
 - [x] Realiser une review complete du projet
 - [x] Reproduire les anomalies critiques confirmees pendant la review
-- [ ] Corriger les anomalies critiques par ordre de priorite
+- [x] Corriger les anomalies critiques par ordre de priorite
 
 ## P0 - Robustesse serveur et protocole WebSocket
 
@@ -65,6 +65,10 @@ Convention de suivi:
 - [x] Reduire ou adapter les overlays, ombres et effets globaux si un cout de rendu significatif est constate
 - [x] Ajouter un support `prefers-reduced-motion` pour les animations et le confetti
 - [x] Verifier que les effets decoratifs ne degradent pas la lisibilite ou l'accessibilite selon le theme choisi
+
+Trace documentaire de cette passe:
+- voir `docs/p3-accessibilite-perf.md` pour les garde-fous verifies dans le code sur `prefers-reduced-motion`, les overlays et la lisibilite
+- aucune campagne de mesure instrumentee versionnee n'est conservee dans ce repo; la cloture P3 ici correspond a une revue des adaptations en place, pas a un benchmark formel archive
 
 ## Decisions produit a trancher
 
