@@ -1,35 +1,31 @@
 import { cn } from "@/lib/utils";
-import { sendRoomMessage } from "@/lib/roomSocket";
-import { useRoomStore } from "@/stores/useRoomStore";
 
-export default function CardGrid() {
-  const roomState = useRoomStore((s) => s.roomState);
-  const myParticipantId = useRoomStore((s) => s.myParticipantId);
+interface CardGridProps {
+  deck: string[];
+  myVote: string | null | undefined;
+  revealed: boolean;
+  onVote: (value: string) => void;
+}
 
-  if (!roomState) return null;
-
-  const myParticipant = roomState.participants.find(
-    (p) => p.id === myParticipantId
-  );
-  const myVote = myParticipant?.vote;
-  const isRevealed = roomState.revealed;
-
-  function handleVote(value: string) {
-    sendRoomMessage({ type: "vote", value });
-  }
+export default function CardGrid({
+  deck,
+  myVote,
+  revealed,
+  onVote,
+}: CardGridProps) {
 
   return (
     <div className="space-y-4">
       <h2 className="text-sm font-medium text-muted-foreground">
-        {isRevealed ? "Votes revealed - adjust if needed" : "Select your estimate"}
+        {revealed ? "Votes revealed - adjust if needed" : "Select your estimate"}
       </h2>
       <div className="flex flex-wrap justify-center gap-3">
-        {roomState.deck.map((value, index) => {
+        {deck.map((value, index) => {
           const isSelected = myVote === value;
           return (
             <button
               key={value}
-              onClick={() => handleVote(value)}
+              onClick={() => onVote(value)}
               className={cn(
                 "animate-card-pop",
                 "flex h-20 w-14 items-center justify-center rounded-lg border-2 text-lg font-bold",

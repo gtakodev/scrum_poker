@@ -1,32 +1,33 @@
+import type { Participant } from "@shared/types";
 import { cn } from "@/lib/utils";
-import { sendRoomMessage } from "@/lib/roomSocket";
-import { useRoomStore } from "@/stores/useRoomStore";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 
-export default function ParticipantList() {
-  const roomState = useRoomStore((s) => s.roomState);
-  const myParticipantId = useRoomStore((s) => s.myParticipantId);
+interface ParticipantListProps {
+  participants: Participant[];
+  myParticipantId: string | null;
+  revealed: boolean;
+  onKick: (participantId: string) => void;
+}
 
-  if (!roomState) return null;
-
-  const isRevealed = roomState.revealed;
-
-  function handleKick(participantId: string) {
-    sendRoomMessage({ type: "kick", participantId });
-  }
+export default function ParticipantList({
+  participants,
+  myParticipantId,
+  revealed,
+  onKick,
+}: ParticipantListProps) {
 
   return (
     <div className="space-y-3">
       <h2 className="text-sm font-medium text-muted-foreground">
-        Participants ({roomState.participants.length})
+        Participants ({participants.length})
       </h2>
       <div className="space-y-2">
-        {roomState.participants.map((p, index) => {
+        {participants.map((p, index) => {
           const isMe = p.id === myParticipantId;
           const hasVoted = p.vote !== null;
-          const voteDisplay = isRevealed ? p.vote : hasVoted ? "hidden" : null;
+          const voteDisplay = revealed ? p.vote : hasVoted ? "hidden" : null;
 
           return (
             <div
@@ -42,14 +43,14 @@ export default function ParticipantList() {
                 <div
                   className={cn(
                     "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-xs font-bold transition-colors",
-                    isRevealed && voteDisplay
+                    revealed && voteDisplay
                       ? "bg-primary text-primary-foreground"
                       : hasVoted
                         ? "bg-primary/15 text-primary"
                         : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {isRevealed && voteDisplay
+                  {revealed && voteDisplay
                     ? voteDisplay
                     : hasVoted
                       ? "✓"
@@ -75,7 +76,7 @@ export default function ParticipantList() {
                     variant="ghost"
                     size="icon"
                     className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={() => handleKick(p.id)}
+                    onClick={() => onKick(p.id)}
                     title={`Remove ${p.displayName}`}
                   >
                     <X className="h-3 w-3" />

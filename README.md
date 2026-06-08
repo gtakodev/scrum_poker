@@ -10,7 +10,7 @@ A lightweight, real-time, browser-based Planning Poker app for agile teams. No a
 - **Session resume** - rejoin a room after a disconnect via a localStorage-backed `sessionToken`
 - **Single active tab per session** - a newer tab replaces the older socket for the same participant
 - **Kick handling** - a kicked client stops auto-reconnecting; the room link still works for a manual return
-- **5 visual themes** - Daylight, Obsidian, Neon Arcade, Blueprint, Desert Atelier
+- **Fixed Obsidian theme** - one dark theme across the whole app
 - **Unanimous reveal confetti** - celebratory animation when all votes are unanimous
 - **Reduced motion support** - confetti and motion-heavy UI effects back off under `prefers-reduced-motion`
 - **Share links** - one-click copy to invite teammates
@@ -21,28 +21,23 @@ A lightweight, real-time, browser-based Planning Poker app for agile teams. No a
 
 | Layer | Technology |
 |-------|-----------|
-| Runtime | Bun 1.3+ |
+| Workspace | pnpm |
 | Frontend | React 19, Vite 7, Tailwind CSS 4 |
-| UI | Radix UI primitives, Sonner |
-| Routing | wouter 3 |
-| State | Zustand 5 |
-| Backend | Bun.serve() + TypeScript |
-| Deployment | Docker, Caddy |
+| Routing | TanStack Router |
+| Server State | TanStack Query |
+| Backend | Express + ws + TypeScript |
+| UI | Radix UI primitives |
 
 ## Quick Start (Development)
 
-Prerequisites: [Bun](https://bun.sh) v1.3+
+Prerequisites: Node.js 24+ and pnpm 10+
 
 ```bash
-# Install dependencies
-cd server && bun install && cd ..
-cd client && bun install && cd ..
+# Install workspace dependencies
+pnpm install
 
-# Start the backend (port 3000)
-cd server && bun run dev &
-
-# Start the frontend dev server (port 5173, proxies API/WS to 3000)
-cd client && bun run dev
+# Start client + server
+pnpm dev
 ```
 
 Open http://localhost:5173 in your browser.
@@ -50,54 +45,31 @@ Open http://localhost:5173 in your browser.
 ## Production Build
 
 ```bash
-# Build the frontend
-cd client && bun run build
-
-# Start the server (serves API + built frontend)
-cd server && NODE_ENV=production bun run start
+# Build the client bundle
+pnpm build
 ```
-
-The server runs on port 3000 and serves both the API and the static frontend.
-
-## Docker Deployment
-
-```bash
-# Build and run with Docker
-docker build -t sprintvote .
-docker run -p 3000:3000 sprintvote
-```
-
-### With Caddy (HTTPS)
-
-1. Edit `Caddyfile` — replace `yourdomain.example.com` with your actual domain
-2. Point your domain's DNS to your server's IP
-3. Run:
-
-```bash
-docker compose up -d
-```
-
-Caddy will auto-provision HTTPS via Let's Encrypt. The app will be available at `https://yourdomain.example.com`.
 
 ## Project Structure
 
 ```
 scrum_poker/
+├── pnpm-workspace.yaml       # Workspace packages
+├── tsconfig.base.json        # Shared TypeScript config
 ├── shared/types.ts          # Shared TypeScript types (RoomState, messages)
 ├── server/src/
-│   ├── index.ts             # Bun.serve() — HTTP + WebSocket + static serving
-│   ├── room.ts              # Room CRUD, in-memory store, cleanup
-│   ├── handlers.ts          # WebSocket message dispatch, personalized broadcasts
+│   ├── index.ts             # Express + ws bootstrap
+│   ├── room-store.ts        # Room CRUD, in-memory store, cleanup
+│   ├── room-events.ts       # WebSocket message dispatch, personalized broadcasts
 │   └── validation.ts        # Shared input normalization helpers
 ├── client/src/
-│   ├── App.tsx              # Routes, theme document sync
 │   ├── pages/               # HomePage, RoomPage, NotFoundPage
+│   ├── features/room/       # Query keys + room socket lifecycle
 │   ├── components/          # CardGrid, ParticipantList, VoteSummary, etc.
-│   ├── stores/              # Serializable UI/application state
-│   ├── hooks/               # React lifecycle bindings for sockets and effects
-│   ├── themes/              # Theme source of truth (5 themes)
-│   └── lib/                 # Imperative adapters and utilities
-├── scripts/verify.ts        # Root verification (typecheck + tests + build + E2E)
+│   ├── hooks/               # React lifecycle bindings for effects
+│   ├── lib/                 # Query, API, storage, and utilities
+│   ├── router.tsx           # TanStack Router setup
+│   └── styles/              # Obsidian theme CSS
+├── test-e2e.ts             # HTTP + WS integration verification
 ├── Dockerfile               # Multi-stage build
 ├── docker-compose.yml       # App + Caddy
 └── Caddyfile                # Reverse proxy config
@@ -105,11 +77,10 @@ scrum_poker/
 
 ## Client Layer Responsibilities
 
-- `stores/` keeps serializable room UI state only. It does not own browser resources such as WebSocket instances.
-- `hooks/` binds React lifecycle to external systems. `useWebSocket` opens, closes, reconnects, and translates server messages into store updates.
-- `lib/roomSocket.ts` is the narrow imperative adapter used by components to send room commands through the active socket.
-- `themes/` owns theme state and theme-specific derived values.
-- `components/` render state and dispatch user intent; they do not manage connection lifecycle.
+- `features/room/use-room-socket.ts` owns the WebSocket lifecycle and reconnection behavior.
+- `TanStack Query` keeps the latest `room_state` as cached server state.
+- `components/` render room state passed from the route instead of pulling from a global store.
+- `lib/storage.ts` stores per-room display names and session tokens.
 
 ## WebSocket Protocol
 
@@ -133,39 +104,27 @@ scrum_poker/
 - When the client receives `kicked`, it stops the automatic reconnect loop and shows an error.
 - A kicked user can still open the room link manually. If the old token was invalidated by the kick, the server creates a new participant identity.
 
-## Theme Strategy
-
-`client/src/themes/index.ts` is the single source of truth for theme state.
-
-- `useTheme()` reads the current app theme from localStorage-backed state
-- `setTheme()` updates storage and notifies all theme consumers
-- `App.tsx` applies the current theme classes to `<html>`
-- `ThemeSelector`, `useConfettiOnReveal`, and toast rendering all consume that same theme state
-
-`next-themes` is intentionally not used.
-
 ## Verification and Tests
 
 Recommended from the repo root:
 
 ```bash
-bun run verify
+pnpm verify
 ```
 
-`bun run verify` runs:
+`pnpm verify` runs:
 
 - server typecheck
 - server unit tests
+- client test command
 - client production build
 - `test-e2e.ts` against a temporary local server
 
 Focused commands from the repo root:
 
 ```bash
-bun run typecheck
-bun run test:server
-bun run build:client
-
-# Requires a server already running on PORT 3000 (or $PORT)
-bun run test:e2e
+pnpm --filter server typecheck
+pnpm --filter server test
+pnpm --filter client build
+pnpm test:e2e
 ```

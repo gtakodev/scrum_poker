@@ -1,149 +1,107 @@
-import { createRoom, getRoom } from "./room";
-import { handleClose, handleMessage, type WSData } from "./handlers";
+import express, { type NextFunction, type Request, type Response } from "express";
+import type { AddressInfo } from "node:net";
+import { createServer, type Server } from "node:http";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { WebSocketServer } from "ws";
+import { attachSocketData, handleClose, handleMessage } from "./room-events";
+import { createRoom, getRoom } from "./room-store";
 import { normalizeNonEmptyString } from "./validation";
-import path from "path";
-import { statSync, existsSync } from "fs";
 
-const PORT = parseInt(process.env.PORT || "3000", 10);
-const IS_PROD = process.env.NODE_ENV === "production";
-const CLIENT_DIST = path.resolve(import.meta.dir, "../../client/dist");
+export function createApp() {
+  const app = express();
+  app.use(express.json());
 
-// ─── MIME types for static file serving ──────────────────────
-const MIME_TYPES: Record<string, string> = {
-  ".html": "text/html",
-  ".js": "application/javascript",
-  ".css": "text/css",
-  ".json": "application/json",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff": "font/woff",
-  ".woff2": "font/woff2",
-};
+  app.post("/api/rooms", (request, response) => {
+    const name = normalizeNonEmptyString(request.body?.name);
+    if (!name) {
+      response.status(400).json({ error: "Room name is required" });
+      return;
+    }
 
-function getMimeType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  return MIME_TYPES[ext] || "application/octet-stream";
+    const room = createRoom(name);
+    response.status(201).json({ roomId: room.id, name: room.name });
+  });
+
+  app.get("/api/rooms/:roomId", (request, response) => {
+    const room = getRoom(request.params.roomId);
+    if (!room) {
+      response.status(404).json({ exists: false });
+      return;
+    }
+
+    response.json({ exists: true, name: room.name });
+  });
+
+  app.use((error: Error, _request: Request, response: Response, next: NextFunction) => {
+    if (error instanceof SyntaxError && "body" in error) {
+      response.status(400).json({ error: "Invalid request body" });
+      return;
+    }
+
+    next(error);
+  });
+
+  return app;
 }
 
-// ─── Serve static files (production) ─────────────────────────
-function serveStatic(pathname: string): Response | null {
-  if (!IS_PROD) return null;
+export function createRealtimeServer() {
+  const app = createApp();
+  const server = createServer(app);
+  const wss = new WebSocketServer({ noServer: true });
 
-  let filePath = path.join(CLIENT_DIST, pathname);
-
-  // If it's a directory or no extension, serve index.html (SPA fallback)
-  try {
-    if (existsSync(filePath) && statSync(filePath).isFile()) {
-      return new Response(Bun.file(filePath), {
-        headers: { "Content-Type": getMimeType(filePath) },
-      });
+  server.on("upgrade", (request, socket, head) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    if (!url.pathname.startsWith("/ws/")) {
+      socket.destroy();
+      return;
     }
-  } catch {
-    // fall through
-  }
 
-  // SPA fallback — serve index.html for all non-API/non-WS routes
-  const indexPath = path.join(CLIENT_DIST, "index.html");
-  if (existsSync(indexPath)) {
-    return new Response(Bun.file(indexPath), {
-      headers: { "Content-Type": "text/html" },
+    const roomId = url.pathname.slice("/ws/".length);
+    if (!getRoom(roomId)) {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+      return;
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      attachSocketData(ws, {
+        roomId,
+        participantId: null,
+        sessionToken: null,
+      });
+
+      ws.on("error", (error) => {
+        console.error("WebSocket error:", error);
+      });
+      ws.on("message", (message) => handleMessage(ws, message));
+      ws.on("close", () => handleClose(ws));
     });
-  }
+  });
 
-  return null;
+  return { app, server, wss };
 }
 
-// ─── Server ──────────────────────────────────────────────────
-const server = Bun.serve<WSData>({
-  port: PORT,
+export async function startServer(port = Number(process.env.PORT ?? 3000)): Promise<Server> {
+  const { server } = createRealtimeServer();
+  await new Promise<void>((resolve) => {
+    server.listen(port, () => resolve());
+  });
 
-  fetch(req, server) {
-    const url = new URL(req.url);
-    const pathname = url.pathname;
+  const address = server.address() as AddressInfo | null;
+  if (address) {
+    console.log(`SprintVote server running on http://localhost:${address.port}`);
+  }
 
-    // ── WebSocket upgrade ──
-    if (pathname.startsWith("/ws/")) {
-      const roomId = pathname.slice(4); // "/ws/abc123" → "abc123"
-      const room = getRoom(roomId);
-      if (!room) {
-        return new Response(JSON.stringify({ error: "Room not found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
+  return server;
+}
 
-      const success = server.upgrade(req, {
-        data: { roomId, participantId: null, sessionToken: null } satisfies WSData,
-      });
-      if (success) return undefined;
-      return new Response("WebSocket upgrade failed", { status: 500 });
-    }
+const isEntryPoint =
+  process.argv[1] !== undefined &&
+  pathToFileURL(process.argv[1]).href === import.meta.url;
 
-    // ── API: Create room ──
-    if (pathname === "/api/rooms" && req.method === "POST") {
-      return (async () => {
-        try {
-          const body = (await req.json()) as { name?: unknown };
-          const name = normalizeNonEmptyString(body.name);
-          if (!name) {
-            return new Response(
-              JSON.stringify({ error: "Room name is required" }),
-              { status: 400, headers: { "Content-Type": "application/json" } }
-            );
-          }
-          const room = createRoom(name);
-          return new Response(
-            JSON.stringify({ roomId: room.id, name: room.name }),
-            { status: 201, headers: { "Content-Type": "application/json" } }
-          );
-        } catch {
-          return new Response(
-            JSON.stringify({ error: "Invalid request body" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          );
-        }
-      })();
-    }
-
-    // ── API: Check room exists ──
-    if (pathname.startsWith("/api/rooms/") && req.method === "GET") {
-      const roomId = pathname.slice(11); // "/api/rooms/abc123" → "abc123"
-      const room = getRoom(roomId);
-      if (!room) {
-        return new Response(
-          JSON.stringify({ exists: false }),
-          { status: 404, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ exists: true, name: room.name }),
-        { headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Static files (production) ──
-    const staticResponse = serveStatic(pathname);
-    if (staticResponse) return staticResponse;
-
-    // ── Fallback ──
-    return new Response("Not found", { status: 404 });
-  },
-
-  websocket: {
-    open(_ws) {
-      // Connection opened, waiting for join message
-    },
-    message(ws, message) {
-      handleMessage(ws, message as string);
-    },
-    close(ws) {
-      handleClose(ws);
-    },
-    idleTimeout: 120,
-    maxPayloadLength: 64 * 1024, // 64KB — more than enough for our messages
-  },
-});
-
-console.log(`SprintVote server running on http://localhost:${server.port}`);
+if (isEntryPoint) {
+  startServer().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}

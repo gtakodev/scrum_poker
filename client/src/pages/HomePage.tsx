@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,54 +11,39 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import ThemeSelector from "@/components/ThemeSelector";
+import { createRoom } from "@/lib/api";
+import { saveDisplayName } from "@/lib/storage";
 
 export default function HomePage() {
-  const [, navigate] = useLocation();
+  const navigate = useNavigate();
 
-  // Create room form
   const [roomName, setRoomName] = useState("");
   const [createDisplayName, setCreateDisplayName] = useState("");
-  const [creating, setCreating] = useState(false);
-
-  // Join room form
   const [joinRoomId, setJoinRoomId] = useState("");
-
   const [error, setError] = useState<string | null>(null);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    if (!roomName.trim() || !createDisplayName.trim()) return;
-
-    setCreating(true);
-    setError(null);
-
-    try {
-      const res = await fetch("/api/rooms", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: roomName.trim() }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        setError(data.error || "Failed to create room");
-        return;
-      }
-
-      const data = await res.json();
-
-      // Store display name for the room page to use
-      sessionStorage.setItem(
-        `sprintvote_name_${data.roomId}`,
-        createDisplayName.trim()
+  const createRoomMutation = useMutation({
+    mutationFn: createRoom,
+    onSuccess: ({ roomId }) => {
+      saveDisplayName(roomId, createDisplayName.trim());
+      navigate({ to: "/room/$roomId", params: { roomId } });
+    },
+    onError: (mutationError) => {
+      setError(
+        mutationError instanceof Error
+          ? mutationError.message
+          : "Failed to create room"
       );
-      navigate(`/room/${data.roomId}`);
-    } catch {
-      setError("Failed to create room. Is the server running?");
-    } finally {
-      setCreating(false);
+    },
+  });
+
+  function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!roomName.trim() || !createDisplayName.trim()) {
+      return;
     }
+
+    setError(null);
+    createRoomMutation.mutate(roomName.trim());
   }
 
   function handleJoin(e: React.FormEvent) {
@@ -77,18 +63,12 @@ export default function HomePage() {
       // Not a URL, use as room ID directly
     }
 
-    navigate(`/room/${roomId}`);
+    navigate({ to: "/room/$roomId", params: { roomId } });
   }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      {/* Theme selector in top-right */}
-      <div className="fixed top-4 right-4 z-10">
-        <ThemeSelector />
-      </div>
-
       <div className="w-full max-w-md space-y-6">
-        {/* Brand header */}
         <div className="text-center animate-fade-in-up">
           <h1 className="text-4xl font-bold tracking-tight">
             Sprint<span className="text-primary">Vote</span>
@@ -104,7 +84,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Create Room */}
         <Card className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
           <CardHeader>
             <CardTitle>Create a Room</CardTitle>
@@ -126,8 +105,12 @@ export default function HomePage() {
                 onChange={(e) => setCreateDisplayName(e.target.value)}
                 required
               />
-              <Button type="submit" className="w-full" disabled={creating}>
-                {creating ? "Creating..." : "Create Room"}
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createRoomMutation.isPending}
+              >
+                {createRoomMutation.isPending ? "Creating..." : "Create Room"}
               </Button>
             </form>
           </CardContent>
@@ -139,7 +122,6 @@ export default function HomePage() {
           <Separator className="flex-1" />
         </div>
 
-        {/* Join Room */}
         <Card className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
           <CardHeader>
             <CardTitle>Join a Room</CardTitle>

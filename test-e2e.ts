@@ -1,10 +1,6 @@
-/**
- * End-to-end test script for SprintVote.
- * Run with: bun run test-e2e.ts
- * Requires the server to be running on port 3000.
- */
+import { startServer } from "./server/src/index";
 
-const PORT = process.env.PORT || "3000";
+const PORT = Number(process.env.PORT || "3000");
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 const WS_BASE = `ws://127.0.0.1:${PORT}`;
 
@@ -87,53 +83,58 @@ function createQueuedWS(url: string): {
 }
 
 async function main() {
+  const server = await startServer(PORT);
   console.log("\n=== SprintVote E2E Test ===\n");
 
-  // ─── 1. Create Room via API ───
-  console.log("1. Create Room");
-  const createRes = await fetch(`${BASE_URL}/api/rooms`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: "E2E Test Sprint" }),
-  });
-  assert(createRes.status === 201, "Room created with 201");
-  const { roomId, name } = (await createRes.json()) as any;
-  assert(!!roomId, `Room ID returned: ${roomId}`);
-  assert(name === "E2E Test Sprint", "Room name matches");
+  try {
+    // ─── 1. Create Room via API ───
+    console.log("1. Create Room");
+    const createRes = await fetch(`${BASE_URL}/api/rooms`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "E2E Test Sprint" }),
+    });
+    assert(createRes.status === 201, "Room created with 201");
+    const { roomId, name } = (await createRes.json()) as {
+      roomId: string;
+      name: string;
+    };
+    assert(!!roomId, `Room ID returned: ${roomId}`);
+    assert(name === "E2E Test Sprint", "Room name matches");
 
-  // ─── 2. Check Room Exists ───
-  console.log("\n2. Check Room Exists");
-  const checkRes = await fetch(`${BASE_URL}/api/rooms/${roomId}`);
-  const checkData = (await checkRes.json()) as any;
-  assert(checkData.exists === true, "Room exists");
-  assert(checkData.name === "E2E Test Sprint", "Room name from GET");
+    // ─── 2. Check Room Exists ───
+    console.log("\n2. Check Room Exists");
+    const checkRes = await fetch(`${BASE_URL}/api/rooms/${roomId}`);
+    const checkData = (await checkRes.json()) as { exists: boolean; name?: string };
+    assert(checkData.exists === true, "Room exists");
+    assert(checkData.name === "E2E Test Sprint", "Room name from GET");
 
-  // ─── 3. Check Non-existent Room ───
-  console.log("\n3. Check Non-existent Room");
-  const noRoom = await fetch(`${BASE_URL}/api/rooms/nonexistent`);
-  assert(noRoom.status === 404, "Non-existent room returns 404");
+    // ─── 3. Check Non-existent Room ───
+    console.log("\n3. Check Non-existent Room");
+    const noRoom = await fetch(`${BASE_URL}/api/rooms/nonexistent`);
+    assert(noRoom.status === 404, "Non-existent room returns 404");
 
-  // ─── 4. WebSocket: Alice joins ───
-  console.log("\n4. Alice Joins via WebSocket");
-  const alice = createQueuedWS(`${WS_BASE}/ws/${roomId}`);
-  await alice.waitOpen();
-  assert(true, "Alice WS connected");
+    // ─── 4. WebSocket: Alice joins ───
+    console.log("\n4. Alice Joins via WebSocket");
+    const alice = createQueuedWS(`${WS_BASE}/ws/${roomId}`);
+    await alice.waitOpen();
+    assert(true, "Alice WS connected");
 
-  alice.ws.send(JSON.stringify({ type: "join", displayName: "Alice" }));
-  const aliceJoinMsg = await alice.nextMessage();
-  assert(aliceJoinMsg.type === "room_state", "Alice receives room_state");
-  assert(!!aliceJoinMsg.yourParticipantId, `Alice gets participantId: ${aliceJoinMsg.yourParticipantId}`);
-  assert(!!aliceJoinMsg.sessionToken, "Alice gets sessionToken");
-  const aliceId = aliceJoinMsg.yourParticipantId;
-  const aliceToken = aliceJoinMsg.sessionToken;
-  assert(aliceJoinMsg.state.participants.length === 1, "1 participant after Alice joins");
-  assert(aliceJoinMsg.state.participants[0].displayName === "Alice", "Participant is Alice");
+    alice.ws.send(JSON.stringify({ type: "join", displayName: "Alice" }));
+    const aliceJoinMsg = await alice.nextMessage();
+    assert(aliceJoinMsg.type === "room_state", "Alice receives room_state");
+    assert(!!aliceJoinMsg.yourParticipantId, `Alice gets participantId: ${aliceJoinMsg.yourParticipantId}`);
+    assert(!!aliceJoinMsg.sessionToken, "Alice gets sessionToken");
+    const aliceId = aliceJoinMsg.yourParticipantId;
+    const aliceToken = aliceJoinMsg.sessionToken;
+    assert(aliceJoinMsg.state.participants.length === 1, "1 participant after Alice joins");
+    assert(aliceJoinMsg.state.participants[0].displayName === "Alice", "Participant is Alice");
 
-  // ─── 5. WebSocket: Bob joins ───
-  console.log("\n5. Bob Joins via WebSocket");
-  const bob = createQueuedWS(`${WS_BASE}/ws/${roomId}`);
-  await bob.waitOpen();
-  bob.ws.send(JSON.stringify({ type: "join", displayName: "Bob" }));
+    // ─── 5. WebSocket: Bob joins ───
+    console.log("\n5. Bob Joins via WebSocket");
+    const bob = createQueuedWS(`${WS_BASE}/ws/${roomId}`);
+    await bob.waitOpen();
+    bob.ws.send(JSON.stringify({ type: "join", displayName: "Bob" }));
 
   // Bob receives room_state
   const bobJoinMsg = await bob.nextMessage();
@@ -438,13 +439,23 @@ async function main() {
   assert(roomStillExistsRes.status === 200, "Server stays alive after malformed join");
   assert(roomStillExists.exists === true, "Room still exists after malformed join");
 
-  // ─── Cleanup ───
-  alice3.ws.close();
-  bob.ws.close();
-  charlie.ws.close();
+    // ─── Cleanup ───
+    alice3.ws.close();
+    bob.ws.close();
+    charlie.ws.close();
 
-  console.log("\n=== ALL E2E CHECKS PASSED ===\n");
-  process.exit(0);
+    console.log("\n=== ALL E2E CHECKS PASSED ===\n");
+  } finally {
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
 }
 
 main().catch((err) => {
