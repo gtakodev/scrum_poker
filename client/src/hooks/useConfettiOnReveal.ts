@@ -1,15 +1,8 @@
 import { useEffect, useRef } from "react";
-import { useRoomStore } from "@/stores/useRoomStore";
-import { useTheme } from "@/themes";
+import type { RoomState } from "@shared/types";
 import { triggerConfetti, isUnanimous } from "@/lib/confetti";
 
-/**
- * Watch for unanimous votes when reveal happens.
- * Triggers confetti animation once per reveal cycle.
- */
-export function useConfettiOnReveal() {
-  const roomState = useRoomStore((s) => s.roomState);
-  const { theme } = useTheme();
+export function useConfettiOnReveal(roomState: RoomState | null) {
   const prevRevealed = useRef(false);
 
   useEffect(() => {
@@ -18,14 +11,13 @@ export function useConfettiOnReveal() {
       return;
     }
 
-    // Detect transition from hidden → revealed
     if (roomState.revealed && !prevRevealed.current) {
-      const votes = roomState.participants.map((p) => p.vote);
+      const votes = roomState.participants.map((participant) => participant.vote);
       if (isUnanimous(votes)) {
-        triggerConfetti(theme);
+        triggerConfetti();
       }
     }
 
     prevRevealed.current = roomState.revealed;
-  }, [roomState, theme]);
+  }, [roomState]);
 }

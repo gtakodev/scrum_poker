@@ -11,3 +11,7 @@ Triage uses the default label vocabulary: `needs-triage`, `needs-info`, `ready-f
 ### Domain docs
 
 Domain docs use a single-context layout. See `docs/agents/domain.md`.
+
+### General instructions
+
+- When reporting information to me, be extremely concise and sacrifice grammar for the sake of concision.

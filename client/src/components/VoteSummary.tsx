@@ -1,11 +1,17 @@
-import { useRoomStore } from "@/stores/useRoomStore";
+import type { Participant } from "@shared/types";
 
-export default function VoteSummary() {
-  const roomState = useRoomStore((s) => s.roomState);
+interface VoteSummaryProps {
+  participants: Participant[];
+  revealed: boolean;
+}
 
-  if (!roomState || !roomState.revealed) return null;
+export default function VoteSummary({
+  participants,
+  revealed,
+}: VoteSummaryProps) {
+  if (!revealed) return null;
 
-  const votes = roomState.participants
+  const votes = participants
     .map((p) => p.vote)
     .filter((v): v is string => v !== null);
 

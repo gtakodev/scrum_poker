@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
-import { useWebSocket } from "@/hooks/useWebSocket";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
+import type { RoomState } from "@shared/types";
+import { roomRouteApi } from "@/router";
+import { roomKeys } from "@/features/room/query-keys";
+import { useRoomSocket } from "@/features/room/use-room-socket";
 import { useConfettiOnReveal } from "@/hooks/useConfettiOnReveal";
-import { useRoomStore } from "@/stores/useRoomStore";
+import { getRoom } from "@/lib/api";
+import { getDisplayName, saveDisplayName } from "@/lib/storage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,47 +22,29 @@ import ParticipantList from "@/components/ParticipantList";
 import RoomControls from "@/components/RoomControls";
 import ShareLink from "@/components/ShareLink";
 import VoteSummary from "@/components/VoteSummary";
-import ThemeSelector from "@/components/ThemeSelector";
 
 export default function RoomPage() {
-  const params = useParams<{ roomId: string }>();
-  const roomId = params.roomId;
-  const [, navigate] = useLocation();
-
-  // Check if we have a stored display name (from room creation)
-  const storedName =
-    typeof window !== "undefined"
-      ? sessionStorage.getItem(`sprintvote_name_${roomId}`) || ""
-      : "";
-
-  const [displayName, setDisplayName] = useState(storedName);
-  const [joined, setJoined] = useState(!!storedName);
-  const [roomExists, setRoomExists] = useState<boolean | null>(null);
-
-  const roomState = useRoomStore((s) => s.roomState);
-  const connected = useRoomStore((s) => s.connected);
-  const error = useRoomStore((s) => s.error);
+  const { roomId } = roomRouteApi.useParams();
+  const [displayName, setDisplayNameState] = useState(() => getDisplayName(roomId));
+  const [joined, setJoined] = useState(() => Boolean(getDisplayName(roomId)));
   const [showReconnecting, setShowReconnecting] = useState(false);
+  const roomExistsQuery = useQuery({
+    queryKey: roomKeys.exists(roomId),
+    queryFn: () => getRoom(roomId),
+  });
+  const roomStateQuery = useQuery<RoomState | null>({
+    queryKey: roomKeys.state(roomId),
+    queryFn: async () => null,
+    enabled: false,
+    initialData: null,
+  });
+  const roomState = roomStateQuery.data;
+  const { connected, error, myParticipantId, sendMessage } = useRoomSocket(
+    joined ? roomId : null,
+    joined ? displayName.trim() : null
+  );
 
-  // Connect WebSocket only after user has entered their name
-  useWebSocket(joined ? roomId : null, joined ? displayName : null);
-
-  // Confetti on unanimous reveal
-  useConfettiOnReveal();
-
-  // Check if room exists
-  useEffect(() => {
-    if (!roomId) return;
-
-    fetch(`/api/rooms/${roomId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setRoomExists(data.exists ?? false);
-      })
-      .catch(() => {
-        setRoomExists(false);
-      });
-  }, [roomId]);
+  useConfettiOnReveal(roomState);
 
   useEffect(() => {
     if (connected || !roomState) {
@@ -71,27 +58,32 @@ export default function RoomPage() {
 
   function handleJoin(e: React.FormEvent) {
     e.preventDefault();
-    if (!displayName.trim()) return;
-    sessionStorage.setItem(`sprintvote_name_${roomId}`, displayName.trim());
-    setDisplayName(displayName.trim());
+    if (!displayName.trim()) {
+      return;
+    }
+    saveDisplayName(roomId, displayName.trim());
+    setDisplayNameState(displayName.trim());
     setJoined(true);
   }
 
-  // Room doesn't exist
-  if (roomExists === false) {
+  if (roomExistsQuery.data?.exists === false) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4 animate-fade-in-up">
         <h1 className="text-2xl font-bold">Room Not Found</h1>
         <p className="text-muted-foreground">
           This room doesn't exist or has expired.
         </p>
-        <Button onClick={() => navigate("/")}>Back to Home</Button>
+        <Link
+          to="/"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
+        >
+          Back to Home
+        </Link>
       </div>
     );
   }
 
-  // Loading room check
-  if (roomExists === null) {
+  if (roomExistsQuery.isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-muted-foreground animate-subtle-pulse">Loading...</p>
@@ -99,7 +91,6 @@ export default function RoomPage() {
     );
   }
 
-  // Need display name
   if (!joined) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
@@ -113,7 +104,7 @@ export default function RoomPage() {
               <Input
                 placeholder="Your display name"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => setDisplayNameState(e.target.value)}
                 required
                 autoFocus
               />
@@ -127,19 +118,22 @@ export default function RoomPage() {
     );
   }
 
-  // Error state
   if (error) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4 animate-fade-in-up">
         <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
           {error}
         </div>
-        <Button onClick={() => navigate("/")}>Back to Home</Button>
+        <Link
+          to="/"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
+        >
+          Back to Home
+        </Link>
       </div>
     );
   }
 
-  // Connecting
   if (!roomState) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -150,10 +144,8 @@ export default function RoomPage() {
     );
   }
 
-  // Main room view
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Header */}
       <header className="border-b px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="min-w-0">
@@ -166,7 +158,6 @@ export default function RoomPage() {
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <ShareLink roomId={roomState.id} />
-            <ThemeSelector />
             {showReconnecting && (
               <span className="text-xs text-destructive animate-subtle-pulse">
                 Reconnecting...
@@ -176,20 +167,45 @@ export default function RoomPage() {
         </div>
       </header>
 
-      {/* Main content */}
       <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-4 md:flex-row">
-        {/* Left: Participants */}
         <aside className="w-full md:w-64 flex-shrink-0">
-          <ParticipantList />
+          <ParticipantList
+            participants={roomState.participants}
+            myParticipantId={myParticipantId}
+            revealed={roomState.revealed}
+            onKick={(participantId) => sendMessage({ type: "kick", participantId })}
+          />
         </aside>
 
-        {/* Center: Cards + Controls */}
         <main className="flex flex-1 flex-col items-center gap-6">
-          <CardGrid />
+          <CardGrid
+            deck={roomState.deck}
+            myVote={
+              roomState.participants.find(
+                (participant) => participant.id === myParticipantId
+              )?.vote
+            }
+            revealed={roomState.revealed}
+            onVote={(value) => sendMessage({ type: "vote", value })}
+          />
 
-          {roomState.revealed && <VoteSummary />}
+          {roomState.revealed ? (
+            <VoteSummary
+              participants={roomState.participants}
+              revealed={roomState.revealed}
+            />
+          ) : null}
 
-          <RoomControls />
+          <RoomControls
+            revealed={roomState.revealed}
+            voterCount={
+              roomState.participants.filter((participant) => participant.vote !== null)
+                .length
+            }
+            totalParticipants={roomState.participants.length}
+            onReveal={() => sendMessage({ type: "reveal" })}
+            onReset={() => sendMessage({ type: "reset" })}
+          />
         </main>
       </div>
     </div>

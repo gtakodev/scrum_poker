@@ -1,12 +1,20 @@
 {
-  "name": "sprintvote",
+  "name": "sprintvote-rebuild",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
-    "typecheck": "bun run --cwd server typecheck",
-    "build:client": "bun run --cwd client build",
-    "test:server": "bun run --cwd server test",
-    "test:e2e": "bun run test-e2e.ts",
-    "verify": "bun run scripts/verify.ts"
+    "dev": "concurrently -n client,server -c cyan,magenta \"pnpm --filter client dev\" \"pnpm --filter server dev\"",
+    "dev:client": "pnpm --filter client dev",
+    "dev:server": "pnpm --filter server dev",
+    "build": "pnpm --filter client build",
+    "test:unit": "pnpm --filter server typecheck && pnpm --filter server test && pnpm --filter client test",
+    "test:e2e": "node --import tsx test-e2e.ts",
+    "verify": "pnpm test:unit && pnpm build && pnpm test:e2e"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
   }
 }
