@@ -32,6 +32,14 @@ export function createApp() {
     response.json({ exists: true, name: room.name });
   });
 
+  if (process.env.NODE_ENV === "production") {
+    const clientDist = fileURLToPath(new URL("../../client/dist/", import.meta.url));
+    app.use(express.static(clientDist, { index: false, redirect: false }));
+    app.get(["/", "/room/:roomId"], (_request, response) => {
+      response.sendFile("index.html", { root: clientDist });
+    });
+  }
+
   app.use((error: Error, _request: Request, response: Response, next: NextFunction) => {
     if (error instanceof SyntaxError && "body" in error) {
       response.status(400).json({ error: "Invalid request body" });
