@@ -1,0 +1,143 @@
+#!/bin/bash
+set -euo pipefail
+
+export LC_ALL=C
+export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export GIT_TERMINAL_PROMPT=0
+
+deploy_dir=/opt/scrum-poker
+live_manifest=$deploy_dir/compose.yml
+source_dir=$deploy_dir/source
+app_url=http://127.0.0.1:18090
+
+fail() {
+  printf '%s\n' "$*" >&2
+  exit 1
+}
+
+compose() {
+  local manifest=$1
+  shift
+  docker compose --project-name scrum-poker --project-directory "$deploy_dir" -f "$manifest" "$@"
+}
+
+app_is_running() {
+  local manifest=$1 image=$2 image_id=$3 container running_image
+  container=$(compose "$manifest" ps --quiet app) &&
+    [[ -n "$container" ]] &&
+    running_image=$(docker inspect --format '{{if .State.Running}}{{.Image}} {{.Config.Image}}{{end}}' "$container") &&
+    [[ "$running_image" == "$image_id $image" ]]
+}
+
+app_is_healthy() {
+  local root_status room_response
+  app_is_running "$@" &&
+    root_status=$(curl --silent --max-time 3 --noproxy '*' --output /dev/null \
+      --write-out '%{http_code}' "$app_url/") &&
+    [[ "$root_status" == 200 ]] &&
+    room_response=$(curl --silent --max-time 3 --noproxy '*' \
+      --write-out '\n%{http_code}' "$app_url/api/rooms/__deployment_probe__") &&
+    [[ "$room_response" == '{"exists":false}'$'\n404' ]]
+}
+
+wait_for_app() {
+  local attempt
+  for ((attempt = 0; attempt < 20; attempt++)); do
+    if app_is_healthy "$@"; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+cleanup() {
+  local status=$?
+  trap '' HUP INT TERM
+  # Moving the candidate into place commits the deployment and disarms rollback.
+  if (( rollback )) && [[ -f "$candidate_manifest" ]]; then
+    printf 'Restoring %s\n' "$previous_image" >&2
+    if ! compose "$live_manifest" up -d --no-deps --no-build --pull never app ||
+      ! wait_for_app "$live_manifest" "$previous_image" "$previous_id"; then
+      printf 'Could not restore a healthy %s\n' "$previous_image" >&2
+      status=1
+    fi
+  fi
+  rm -f -- "$candidate_manifest"
+  exit "$status"
+}
+
+if (( $# != 0 )); then
+  fail 'Provide a commit on stdin.'
+fi
+if IFS= read -r -d '' -n 42 request || [[ ! "$request" =~ ^[0-9a-f]{40}$'\n'$ ]]; then
+  fail 'Expected one 40-character lowercase Git commit followed by a newline.'
+fi
+revision=${request%$'\n'}
+
+cd "$deploy_dir"
+exec 9>"$deploy_dir/.deploy.lock"
+flock --exclusive 9
+
+master_ref=refs/heads/master
+tracking_ref=refs/remotes/origin/master
+git -C "$source_dir" fetch --no-tags --no-recurse-submodules origin "+$master_ref:$tracking_ref"
+master_revision=$(git -C "$source_dir" rev-parse --verify "$tracking_ref^{commit}")
+if [[ "$revision" != "$master_revision" ]]; then
+  printf 'Skipping %s because master is now %s\n' "$revision" "$master_revision"
+  exit 0
+fi
+
+previous_image=$(compose "$live_manifest" config --images app)
+[[ "$previous_image" =~ ^scrum-poker:[0-9a-f]{40}$ ]] ||
+  fail 'Expected a commit-tagged scrum-poker image in the current Compose file.'
+previous_id=$(docker image inspect --format '{{.Id}}' "$previous_image")
+candidate_image=scrum-poker:$revision
+
+if [[ "$previous_image" == "$candidate_image" ]] &&
+  app_is_healthy "$live_manifest" "$previous_image" "$previous_id"; then
+  printf '%s is already healthy\n' "$candidate_image"
+  exit 0
+fi
+
+# The saved manifest still identifies the last known good image after an interrupted switch.
+if ! app_is_running "$live_manifest" "$previous_image" "$previous_id"; then
+  compose "$live_manifest" up -d --no-deps --no-build --pull never app
+fi
+
+if [[ "$previous_image" != "$candidate_image" ]]; then
+  git -C "$source_dir" archive --format=tar "$revision" |
+    docker build --label "org.opencontainers.image.revision=$revision" --tag "$candidate_image" -
+fi
+candidate_id=$(docker image inspect --format '{{.Id}}' "$candidate_image")
+
+candidate_manifest=$(mktemp "$deploy_dir/.compose.XXXXXXXX")
+rollback=0
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+if ! awk -v old="$previous_image" -v new="$candidate_image" '
+  $0 == "    image: " old { $0 = "    image: " new; replaced++ }
+  { print }
+  END { if (replaced != 1) exit 1 }
+' "$live_manifest" > "$candidate_manifest"; then
+  fail 'Expected exactly one app image line in the current Compose file.'
+fi
+chmod --reference="$live_manifest" "$candidate_manifest"
+[[ "$(compose "$candidate_manifest" config --images app)" == "$candidate_image" ]] ||
+  fail 'The candidate Compose file does not select the requested image.'
+
+remote_master=$(git -C "$source_dir" ls-remote --exit-code --refs origin "$master_ref")
+if [[ "$remote_master" != "$revision"$'\t'"$master_ref" ]]; then
+  printf 'Skipping %s because master changed during the build\n' "$revision"
+  exit 0
+fi
+
+rollback=1
+compose "$candidate_manifest" up -d --no-deps --no-build --pull never --force-recreate app
+wait_for_app "$candidate_manifest" "$candidate_image" "$candidate_id" ||
+  fail "Health checks failed for $candidate_image"
+mv -f -- "$candidate_manifest" "$live_manifest"
+printf 'Deployed %s\n' "$candidate_image"
