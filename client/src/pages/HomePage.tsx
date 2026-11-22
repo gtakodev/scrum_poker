@@ -3,14 +3,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { ArrowRight, LogIn } from "lucide-react";
+import SiteHeader from "@/components/SiteHeader";
 import { createRoom } from "@/lib/api";
 import { saveDisplayName } from "@/lib/storage";
 
@@ -67,83 +61,71 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center animate-fade-in-up">
-          <h1 className="text-4xl font-bold tracking-tight">
-            Sprint<span className="text-primary">Vote</span>
-          </h1>
-          <p className="mt-2 text-muted-foreground">
-            Fast, real-time planning poker for agile teams
-          </p>
-        </div>
-
-        {error && (
-          <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive animate-fade-in-up">
-            {error}
+    <>
+      <SiteHeader />
+      <main className="site-width home-layout">
+        <section className="home-intro">
+          <h1>Estimate <span>together.</span></h1>
+          <p>Real-time planning poker for your team.</p>
+          <div className="hero-deck" aria-hidden="true">
+            {["3", "8", "13"].map((value) => (
+              <div className="hero-card" key={value}>
+                <span className="hero-card-corner">{value}</span>
+                <span className="card-suit" />
+                <span className="hero-card-corner">{value}</span>
+              </div>
+            ))}
           </div>
-        )}
+        </section>
 
-        <Card className="animate-fade-in-up" style={{ animationDelay: "80ms" }}>
-          <CardHeader>
-            <CardTitle>Create a Room</CardTitle>
-            <CardDescription>
-              Start a new estimation session for your team
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleCreate} className="space-y-3">
+        <div className="app-panel home-panel">
+          <form onSubmit={handleCreate} className="room-form">
+            <h2>Create a room</h2>
+            <label>
+              Room name
               <Input
-                placeholder="Room name (e.g. Sprint 42)"
+                placeholder="e.g. Sprint 42"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 required
               />
+            </label>
+            <label>
+              Your display name
               <Input
-                placeholder="Your display name"
+                placeholder="e.g. Alice"
+                autoComplete="nickname"
                 value={createDisplayName}
                 onChange={(e) => setCreateDisplayName(e.target.value)}
                 required
               />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={createRoomMutation.isPending}
-              >
-                {createRoomMutation.isPending ? "Creating..." : "Create Room"}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <div className="flex items-center gap-4 animate-fade-in-up" style={{ animationDelay: "160ms" }}>
-          <Separator className="flex-1" />
-          <span className="text-sm text-muted-foreground">or</span>
-          <Separator className="flex-1" />
-        </div>
-
-        <Card className="animate-fade-in-up" style={{ animationDelay: "240ms" }}>
-          <CardHeader>
-            <CardTitle>Join a Room</CardTitle>
-            <CardDescription>
-              Enter a room ID or paste a share link
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleJoin} className="space-y-3">
+            </label>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <Button type="submit" className="action-button" disabled={createRoomMutation.isPending}>
+              {createRoomMutation.isPending ? "Creating..." : "Create Room"}
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </form>
+          <form onSubmit={handleJoin} className="room-form">
+            <h2>Join a room</h2>
+            <label>
+              Room link or code
               <Input
                 placeholder="Room ID or share link"
                 value={joinRoomId}
                 onChange={(e) => setJoinRoomId(e.target.value)}
+                autoCapitalize="none"
+                spellCheck={false}
                 required
               />
-              <Button type="submit" variant="outline" className="w-full">
-                Join Room
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+            </label>
+            <Button type="submit" variant="outline" className="action-button action-outline">
+              <LogIn aria-hidden="true" />
+              Join Room
+            </Button>
+          </form>
+        </div>
+      </main>
+    </>
   );
 }

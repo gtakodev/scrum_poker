@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { Coffee } from "lucide-react";
 
 interface CardGridProps {
   deck: string[];
@@ -15,34 +15,31 @@ export default function CardGrid({
 }: CardGridProps) {
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-medium text-muted-foreground">
-        {revealed ? "Votes revealed - adjust if needed" : "Select your estimate"}
-      </h2>
-      <div className="flex flex-wrap justify-center gap-3">
-        {deck.map((value, index) => {
-          const isSelected = myVote === value;
+    <section className="board-deck" aria-labelledby="deck-title">
+      <h2 id="deck-title">{revealed ? "Votes revealed" : "Select your estimate"}</h2>
+      <p>{revealed ? "Choose another card to adjust your vote." : "Your vote stays hidden until the team reveals."}</p>
+      <div className="estimate-deck">
+        {deck.map((value) => {
+          const isCoffee = value === "☕";
           return (
             <button
               key={value}
+              type="button"
               onClick={() => onVote(value)}
-              className={cn(
-                "animate-card-pop",
-                "flex h-20 w-14 items-center justify-center rounded-lg border-2 text-lg font-bold",
-                "transition-all duration-200 ease-out",
-                "hover:-translate-y-1 hover:shadow-lg hover:border-primary/50",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                isSelected
-                  ? "border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/20 -translate-y-1"
-                  : "border-border bg-card text-card-foreground"
-              )}
-              style={{ animationDelay: `${index * 30}ms` }}
+              className="estimate-card"
+              aria-pressed={myVote === value}
+              aria-label={isCoffee ? "Coffee break" : undefined}
             >
-              {value}
+              {isCoffee ? <Coffee aria-hidden="true" /> : (
+                <>
+                  <span>{value}</span>
+                  <span className="card-suit" aria-hidden="true" />
+                </>
+              )}
             </button>
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

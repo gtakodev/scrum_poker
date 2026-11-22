@@ -18,21 +18,27 @@ export default function RoomControls({
 }: RoomControlsProps) {
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3">
+    <div className="board-controls">
+      <div className="round-progress">
+        <p role="status">{voterCount} of {totalParticipants} voted</p>
+        <div className="progress-track" aria-hidden="true">
+          <span style={{ width: `${(voterCount / Math.max(1, totalParticipants)) * 100}%` }} />
+        </div>
+      </div>
       {!revealed ? (
         <Button
           onClick={onReveal}
           disabled={voterCount === 0}
-          className="gap-2"
+          className="action-button"
         >
           <Eye className="h-4 w-4" />
-          Reveal Votes ({voterCount}/{totalParticipants})
+          Reveal Votes
         </Button>
       ) : (
         <Button
           onClick={onReset}
           variant="outline"
-          className="gap-2"
+          className="action-button action-outline"
         >
           <RotateCcw className="h-4 w-4" />
           New Round

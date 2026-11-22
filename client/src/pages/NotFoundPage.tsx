@@ -1,16 +1,15 @@
 import { Link } from "@tanstack/react-router";
+import { ArrowLeft } from "lucide-react";
+import PageMessage from "@/components/PageMessage";
 
 export default function NotFoundPage() {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-4">
-      <h1 className="text-4xl font-bold">404</h1>
-      <p className="text-muted-foreground">Page not found</p>
-      <Link
-        to="/"
-        className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-secondary"
-      >
-        Back to Home
+    <PageMessage>
+      <h1>404</h1>
+      <p>Page not found</p>
+      <Link to="/" className="back-link">
+        <ArrowLeft aria-hidden="true" /> Back to Home
       </Link>
-    </div>
+    </PageMessage>
   );
 }

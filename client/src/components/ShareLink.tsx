@@ -34,16 +34,16 @@ export default function ShareLink({ roomId }: ShareLinkProps) {
       variant="outline"
       size="sm"
       onClick={handleCopy}
-      className="gap-2 text-xs"
+      className="action-button action-outline share-button"
     >
       {copied ? (
         <>
-          <Check className="h-3 w-3" />
+          <Check className="copy-check" aria-hidden="true" />
           Copied!
         </>
       ) : (
         <>
-          <Link className="h-3 w-3" />
+          <Link aria-hidden="true" />
           Share Link
         </>
       )}

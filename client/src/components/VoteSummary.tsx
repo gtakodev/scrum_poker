@@ -1,16 +1,11 @@
 import type { Participant } from "@shared/types";
+import { isUnanimous } from "@/lib/confetti";
 
 interface VoteSummaryProps {
   participants: Participant[];
-  revealed: boolean;
 }
 
-export default function VoteSummary({
-  participants,
-  revealed,
-}: VoteSummaryProps) {
-  if (!revealed) return null;
-
+export default function VoteSummary({ participants }: VoteSummaryProps) {
   const votes = participants
     .map((p) => p.vote)
     .filter((v): v is string => v !== null);
@@ -40,40 +35,30 @@ export default function VoteSummary({
     .map(([v]) => v);
 
   // Check unanimity
-  const isUnanimous = Object.keys(counts).length === 1 && votes.length > 1;
+  const consensus = isUnanimous(votes);
 
   return (
-    <div className="animate-fade-in-up w-full max-w-md rounded-lg border border-t-4 border-t-primary bg-card p-4">
-      <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-        Results
-      </h3>
-      <div className="grid grid-cols-3 gap-4 text-center">
+    <section className="vote-results" aria-labelledby="results-title">
+      <h3 id="results-title">Results</h3>
+      <dl className="result-stats">
         {average !== null && (
           <div>
-            <div className="text-2xl font-bold text-primary">{average.toFixed(1)}</div>
-            <div className="text-xs text-muted-foreground">Average</div>
+            <dt>Average</dt>
+            <dd>{average.toFixed(1)}</dd>
           </div>
         )}
         <div>
-          <div className="text-2xl font-bold">{mostCommon.join(", ")}</div>
-          <div className="text-xs text-muted-foreground">
-            Most Common
-          </div>
+          <dt>Most Common</dt>
+          <dd>{mostCommon.join(", ")}</dd>
         </div>
         <div>
-          <div className="text-2xl font-bold">
-            {isUnanimous ? (
-              <span className="text-primary">Yes!</span>
-            ) : (
-              "No"
-            )}
-          </div>
-          <div className="text-xs text-muted-foreground">Consensus</div>
+          <dt>Consensus</dt>
+          <dd data-consensus={consensus}>{consensus ? "Yes!" : "No"}</dd>
         </div>
-      </div>
+      </dl>
 
       {/* Vote distribution */}
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+      <ul className="vote-distribution" aria-label="Vote distribution">
         {Object.entries(counts)
           .sort(([a], [b]) => {
             const na = parseFloat(a);
@@ -82,15 +67,12 @@ export default function VoteSummary({
             return a.localeCompare(b);
           })
           .map(([value, count]) => (
-            <div
-              key={value}
-              className="flex items-center gap-1.5 rounded-md border bg-secondary/50 px-2.5 py-1 text-sm"
-            >
-              <span className="font-bold">{value}</span>
-              <span className="text-muted-foreground">x{count}</span>
-            </div>
+            <li key={value}>
+              <strong>{value}</strong>
+              <span>×{count}</span>
+            </li>
           ))}
-      </div>
-    </div>
+      </ul>
+    </section>
   );
 }

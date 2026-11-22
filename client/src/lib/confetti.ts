@@ -1,13 +1,5 @@
 import confetti from "canvas-confetti";
 
-const OBSIDIAN_CONFETTI_COLORS = [
-  "#a78bfa",
-  "#c084fc",
-  "#5eead4",
-  "#f9a8d4",
-  "#fbbf24",
-];
-
 function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
@@ -17,13 +9,17 @@ export function triggerConfetti(): void {
     return;
   }
 
+  const palette = getComputedStyle(document.documentElement);
+  const colors = ["--primary", "--accent", "--foreground", "--confetti-cool", "--confetti-warm"]
+    .map((token) => palette.getPropertyValue(token).trim());
+
   // Burst from left
   confetti({
     particleCount: 80,
     angle: 60,
     spread: 55,
     origin: { x: 0, y: 0.6 },
-    colors: OBSIDIAN_CONFETTI_COLORS,
+    colors,
   });
 
   // Burst from right
@@ -32,7 +28,7 @@ export function triggerConfetti(): void {
     angle: 120,
     spread: 55,
     origin: { x: 1, y: 0.6 },
-    colors: OBSIDIAN_CONFETTI_COLORS,
+    colors,
   });
 
   // Delayed center burst for extra effect
@@ -42,7 +38,7 @@ export function triggerConfetti(): void {
       spread: 360,
       startVelocity: 20,
       origin: { x: 0.5, y: 0.4 },
-      colors: OBSIDIAN_CONFETTI_COLORS,
+      colors,
     });
   }, 250);
 }
