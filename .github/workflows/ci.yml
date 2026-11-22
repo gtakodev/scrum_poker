@@ -20,3 +20,32 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Run verification
         run: pnpm verify
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: verify
+    permissions: {}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DEPLOY_KEY: ${{ secrets.SCRUM_POKER_DEPLOY_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ vars.SCRUM_POKER_DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_REVISION: ${{ github.sha }}
+    steps:
+      - name: Deploy the verified commit
+        shell: bash
+        run: |
+          set -eu
+          : "${DEPLOY_KEY:?Missing deployment key}"
+          : "${DEPLOY_KNOWN_HOSTS:?Missing VPS host key}"
+          umask 077
+          credentials=$(mktemp -d)
+          trap 'rm -rf -- "$credentials"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" | tr -d '\r' > "$credentials/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$credentials/known_hosts"
+          ssh -nT -p 37656 -o BatchMode=yes -o ConnectTimeout=10 \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o GlobalKnownHostsFile=/dev/null \
+            -o UserKnownHostsFile="$credentials/known_hosts" -i "$credentials/key" \
+            scrum-poker-deploy@187.77.169.203 "$DEPLOY_REVISION"
